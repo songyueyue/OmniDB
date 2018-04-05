@@ -30,7 +30,7 @@ function createTree(p_div,p_backColor,p_contextMenu) {
 		// p_parentNode: Reference to the parent node. Set null to create the node on the root;
 		// p_tag: Tag is used to store additional information on the node. All node attributes are visible when programming events and context menu actions;
 		// p_contextmenu: Name of the context menu, which is one of the attributes of the p_contextMenu object created with the tree;
-		createNode: function(p_text,p_expanded, p_icon, p_parentNode,p_tag,p_contextmenu,p_color) {
+		createNode: function(p_text,p_expanded, p_icon, p_parentNode,p_tag,p_contextmenu,p_color,p_render=true) {
 			var v_tree = this;
 			var node = {
 				tree: v_tree,
@@ -45,6 +45,7 @@ function createTree(p_div,p_backColor,p_contextMenu) {
 				color: p_color,
 				elementLi: null,
 				doubleClickNodeEvent: null,
+				clickNodeEvent: null,
 				///// Removing the node and all its children
 				removeNode: function() { v_tree.removeNode(this); },
 				///// Expanding or collapsing the node, depending on the expanded value
@@ -68,18 +69,19 @@ function createTree(p_div,p_backColor,p_contextMenu) {
 				// p_icon: Icon;
 				// p_tag: Tag;
 				// p_contextmenu: Context Menu;
-				createChildNode: function(p_text,p_expanded,p_icon,p_tag,p_contextmenu) { return v_tree.createNode(p_text,p_expanded,p_icon,this,p_tag,p_contextmenu); }
+				createChildNode: function(p_text,p_expanded,p_icon,p_tag,p_contextmenu,p_color,p_render=true) { return v_tree.createNode(p_text,p_expanded,p_icon,this,p_tag,p_contextmenu,p_color,p_render); },
+				drawChildNodes: function(p_node) { return v_tree.drawChildNodes(this); }
 			}
 
 			this.nodeCounter++;
-
-			if (this.rendered) {
+			if (this.rendered && p_render) {
 				if (p_parentNode==undefined) {
 					this.drawNode(this.ulElement,node);
 					this.adjustLines(this.ulElement,false);
 				}
 				else {
-					var v_ul = p_parentNode.elementLi.getElementsByTagName("ul")[0];
+
+					var v_ul = p_parentNode.elementUl;
 					if (p_parentNode.childNodes.length==0) {
 						if (p_parentNode.expanded) {
 						p_parentNode.elementLi.getElementsByTagName("ul")[0].style.display = 'block';
@@ -131,6 +133,39 @@ function createTree(p_div,p_backColor,p_contextMenu) {
       		this.adjustLines(document.getElementById(this.name),true);
 
 		},
+		drawChildNodes: function(p_node) {
+
+
+			if (p_node.childNodes.length>0) {
+				if (p_node.expanded) {
+				p_node.elementLi.getElementsByTagName("ul")[0].style.display = 'block';
+				var v_img = p_node.elementLi.getElementsByTagName("img")[0];
+				v_img.style.visibility = "visible";
+				v_img.src = '/static/OmniDB_app/images/collapse.png';
+				v_img.id = 'toggle_off';
+				}
+				else {
+					p_node.elementLi.getElementsByTagName("ul")[0].style.display = 'none';
+					var v_img = p_node.elementLi.getElementsByTagName("img")[0];
+					v_img.style.visibility = "visible";
+					v_img.src = '/static/OmniDB_app/images/expand.png';
+					v_img.id = 'toggle_on';
+				}
+
+				var v_ul = createSimpleElement('ul','ul_' + p_node.id,null);
+
+				for (var i=0; i<p_node.childNodes.length; i++) {
+					this.drawNode(v_ul,p_node.childNodes[i]);
+				}
+
+				p_node.elementUl.parentNode.removeChild(p_node.elementUl);
+				p_node.elementLi.appendChild(v_ul);
+				p_node.elementUl = v_ul;
+				this.adjustLines(v_ul,false);
+			}
+
+
+		},
 		///// Drawing the node. This function is used when drawing the Tree and should not be called directly;
 		// p_ulElement: Reference to the UL tag element where the node should be created;
 		// p_node: Reference to the node object;
@@ -173,6 +208,7 @@ function createTree(p_div,p_backColor,p_contextMenu) {
 			};
 
 			v_span.onclick = function(e) {
+				v_tree.clickNode(p_node);
 				v_tree.selectNode(p_node);
 
 				if (e.ctrlKey) {
@@ -183,6 +219,10 @@ function createTree(p_div,p_backColor,p_contextMenu) {
 			};
 
 			v_span.oncontextmenu = function(e) {
+
+				v_tree.clickNode(p_node);
+				v_tree.selectNode(p_node);
+
 				if (e.button==2) {
 					e.preventDefault();
 					e.stopPropagation();
@@ -221,6 +261,7 @@ function createTree(p_div,p_backColor,p_contextMenu) {
 					this.drawNode(v_ul,p_node.childNodes[i]);
 				}
 			}
+			p_node.elementUl = v_ul;
 		},
 		///// Changing node text
 		// p_node: Reference to the node that will have its text updated;
@@ -311,6 +352,17 @@ function createTree(p_div,p_backColor,p_contextMenu) {
 				else
 					p_node.expandNode();
 			}
+		},
+		///// Clicking node
+		// p_node: Reference to the node;
+		clickNode: function(p_node) {
+			//global event
+			if (this.clickNodeEvent)
+				this.clickNodeEvent(p_node);
+
+			//node event
+			if (p_node.clickNodeEvent)
+				p_node.clickNodeEvent(p_node);
 		},
 		///// Double clicking node
 		// p_node: Reference to the node;

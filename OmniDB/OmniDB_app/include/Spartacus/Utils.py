@@ -1,7 +1,7 @@
 '''
 The MIT License (MIT)
 
-Copyright (c) 2017 William Ivanski
+Copyright (c) 2014-2018 William Ivanski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -187,7 +187,7 @@ class DataFileWriter(object):
         try:
             if self.v_extension == 'csv':
                 self.v_file = open(self.v_filename, 'w', encoding=self.v_encoding)
-                self.v_object = csv.DictWriter(v_file, fieldnames=self.v_header)
+                self.v_object = csv.DictWriter(self.v_file, fieldnames=self.v_header)
                 self.v_object.writeheader()
                 self.v_open = True
             elif self.v_extension == 'xlsx':

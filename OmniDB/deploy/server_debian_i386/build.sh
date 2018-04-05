@@ -1,7 +1,13 @@
 #!/bin/bash
 
-VERSION=2.3.0
+VERSION=2.6.0
 ARCH=debian-i386
+
+echo "Installing OmniDB dependencies..."
+pip install pip --upgrade
+pip install -r ~/OmniDB/requirements.txt --upgrade
+pip install -r ~/OmniDB/OmniDB/deploy/requirements_for_deploy_server.txt --upgrade
+echo "Done"
 
 cd ~/OmniDB/OmniDB
 
@@ -10,6 +16,14 @@ rm -rf build
 rm -rf dist
 rm -rf deploy/packages
 echo "Done."
+
+echo -n "Switching to Release Mode..."
+sed -i -e 's/DEV_MODE = True/DEV_MODE = False/g' OmniDB/custom_settings.py
+echo "Done."
+
+echo -n "Replacing line-end char for SQLite backward compatibility..."
+sed -i -e 's/char(10)/x\x270a\x27/g' OmniDB/migrations/*.sql
+echo "Done"
 
 echo "Generating bundles... "
 pyinstaller OmniDB-lin.spec
@@ -20,6 +34,7 @@ rm -rf build
 mkdir deploy/packages
 cp dist/omnidb-config/omnidb-config dist/omnidb-server/omnidb-config-server
 mv dist/omnidb-server deploy/packages
+chmod 777 deploy/packages/omnidb-server/OmniDB_app/static/temp/
 rm -rf dist
 echo "Done."
 
@@ -40,7 +55,11 @@ mkdir opt
 mv ../omnidb-server opt/
 mkdir -p usr/bin
 cd usr/bin
-ln -s /opt/omnidb-server/omnidb-server .
+cat > omnidb-server <<EOF
+#!/bin/bash
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.:/opt/omnidb-server/ /opt/omnidb-server/omnidb-server \$@
+EOF
+chmod 777 omnidb-server
 ln -s /opt/omnidb-server/omnidb-config-server .
 cd ../..
 mkdir DEBIAN
@@ -57,6 +76,7 @@ Description: OmniDB is a web tool that simplifies database management focusing o
  Server package includes web server and requires a web browser to be used. Ideal for network and server usage.
  App package includes everything, even a simple web browser.
  Plugin package includes a PostgreSQL plugin to enable PLpgSQL function debugger.
+ OIC package includes Oracle Instant Client required for OmniDB to access Oracle databases.
  OmniDB is supported by 2ndQuadrant (http://www.2ndquadrant.com)
 EOF
 cd ..

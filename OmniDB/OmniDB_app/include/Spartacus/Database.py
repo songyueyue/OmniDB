@@ -1,7 +1,7 @@
 '''
 The MIT License (MIT)
 
-Copyright (c) 2017 William Ivanski
+Copyright (c) 2014-2018 William Ivanski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@ from collections import OrderedDict
 from abc import ABC, abstractmethod
 import datetime
 import prettytable
+import math
 
 import OmniDB_app.include.Spartacus as Spartacus
 
@@ -39,10 +40,17 @@ class DataTable(object):
         self.Rows = []
     def AddColumn(self, p_columnname):
         self.Columns.append(p_columnname)
-    def AddRow(self, p_row):
+    def AddRow(self, p_row, p_simple=False):
         if len(self.Columns) > 0 and len(p_row) > 0:
             if len(self.Columns) == len(p_row):
-                self.Rows.append(OrderedDict(zip(self.Columns, tuple(p_row))))
+                v_rowtmp = OrderedDict(zip(self.Columns, tuple(p_row)))
+                if p_simple:
+                    v_row = []
+                    for c in self.Columns:
+                        v_row.append(v_rowtmp[c])
+                else:
+                    v_row = v_rowtmp
+                self.Rows.append(v_row)
             else:
                 raise Spartacus.Database.Exception('Can not add row to a table with different columns.')
         else:
@@ -100,18 +108,18 @@ class DataTable(object):
                             v_row.append('E')
                             v_row.append('')
                             if p_keepequal:
-                                v_table.Rows.append(OrderedDict(zip(v_table.Columns, tuple(v_row))))
+                                v_table.AddRow(v_row)
                         else:
                             v_row.append('U')
                             v_row.append(','.join(v_diff))
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, tuple(v_row))))
+                            v_table.AddRow(v_row)
                     else:
                         v_row = []
                         for c in self.Columns:
                             v_row.append(r1[c])
                         v_row.append('D')
                         v_row.append('')
-                        v_table.Rows.append(OrderedDict(zip(v_table.Columns, tuple(v_row))))
+                        v_table.AddRow(v_row)
                 for r2 in p_datatable.Rows:
                     v_pkmatch = False
                     for r1 in self.Rows:
@@ -128,21 +136,83 @@ class DataTable(object):
                             v_row.append(r2[c])
                         v_row.append('I')
                         v_row.append('')
-                        v_table.Rows.append(OrderedDict(zip(v_table.Columns, tuple(v_row))))
+                        v_table.AddRow(v_row)
                 return v_table
             else:
                 raise Spartacus.Database.Exception('Can not compare tables with different columns.')
         else:
             raise Spartacus.Database.Exception('Can not compare tables with no columns.')
-    def Pretty(self):
-        v_pretty = prettytable.PrettyTable()
-        v_pretty._set_field_names(self.Columns)
-        for r in self.Rows:
-            v_row = []
+    def Pretty(self, p_transpose=False):
+        if p_transpose:
+            v_maxc = 0
             for c in self.Columns:
-                v_row.append(r[c])
-            v_pretty.add_row(v_row)
-        return v_pretty
+                if len(c) > v_maxc:
+                    v_maxc = len(c)
+            if v_maxc < (14 + len(str(len(self.Rows)))):
+                v_maxc = (14 + len(str(len(self.Rows))))
+            else:
+                v_maxc = v_maxc + 1
+            k = 0
+            s = 0
+            v_maxf = 0
+            for r in self.Rows:
+                for c in self.Columns:
+                    for v_snippet in str(r[c]).split('\n'):
+                        k = k + 1
+                        s = s + len(v_snippet)
+                        if len(str(r[c])) > v_maxf:
+                            v_maxf = len(v_snippet)
+            if v_maxf > 30:
+                v_maxf = int(s / k) + int((v_maxf - int(s / k)) / 2)
+            v_maxf = v_maxf + 10
+            v_string = ''
+            v_row = 1
+            for r in self.Rows:
+                v_aux = '-[ RECORD {0} ]'.format(v_row)
+                for k in range(len(v_aux), v_maxc):
+                    v_aux = v_aux + '-'
+                v_string = v_string + v_aux + '+'
+                for k in range(0, v_maxf):
+                    v_string = v_string + '-'
+                v_string = v_string + '\n'
+                for c in self.Columns:
+                    v_first = True
+                    for v_snippet in str(r[c]).split('\n'):
+                        n = math.ceil(len(v_snippet) / (v_maxf-2))
+                        j = 0
+                        for i in range(0, n):
+                            if v_first:
+                                x = c.ljust(v_maxc)
+                                v_first = False
+                            else:
+                                x = ' '.ljust(v_maxc)
+                            if i < n-1:
+                                y = ' ' + v_snippet[j:j+v_maxf-2] + '+'
+                                j = j + v_maxf-2
+                            else:
+                                y = ' ' + v_snippet[j:]
+                            v_string = v_string + '{0}|{1}\n'.format(x, y)
+                v_row = v_row + 1
+            return v_string
+        else:
+            v_pretty = prettytable.PrettyTable()
+            v_pretty._set_field_names(self.Columns)
+            for r in self.Rows:
+                v_row = []
+                for c in self.Columns:
+                    v_row.append(r[c])
+                v_pretty.add_row(v_row)
+            return v_pretty.get_string()
+    def Transpose(self, p_column1, p_column2):
+        if len(self.Rows) == 1:
+            v_table = Spartacus.Database.DataTable()
+            v_table.AddColumn(p_column1)
+            v_table.AddColumn(p_column2)
+            for k in range(len(self.Columns)):
+                v_table.AddRow([self.Columns[k], self.Rows[0][k]])
+            return v_table
+        else:
+            raise Spartacus.Database.Exception('Can only transpose a table with a single row.')
 
 class DataField(object):
     def __init__(self, p_name, p_type=None, p_dbtype=None, p_mask='#'):
@@ -173,6 +243,8 @@ except ImportError:
 try:
     import psycopg2
     from psycopg2 import extras
+    from pgspecial.main import PGSpecial
+    from pgspecial.namedqueries import NamedQueries
     v_supported_rdbms.append('PostgreSQL')
 except ImportError:
     pass
@@ -217,7 +289,7 @@ class Generic(ABC):
     def Open(self, p_autocommit=True):
         pass
     @abstractmethod
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         pass
     @abstractmethod
     def Execute(self, p_sql):
@@ -250,13 +322,16 @@ class Generic(ABC):
     def GetStatus(self):
         pass
     @abstractmethod
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         pass
     @abstractmethod
     def InsertBlock(self, p_block, p_tablename, p_fields=None):
         pass
     @abstractmethod
     def Transfer(self, p_sql, p_targetdatabase, p_tablename, p_blocksize, p_fields=None, p_alltypesstr=False):
+        pass
+    @abstractmethod
+    def Special(self, p_sql):
         pass
     @classmethod
     def Mogrify(self, p_row, p_fields):
@@ -267,7 +342,9 @@ class Generic(ABC):
                 v_value = p_row[p_fields[k].v_name]
                 if type(v_value) == type(None):
                     v_mog.append('null')
-                elif type(v_value) == type(str()) or type(v_value) == datetime.datetime:
+                elif type(v_value) == type(str()):
+                    v_mog.append(p_fields[k].v_mask.replace('#', "'{0}'".format(v_value.replace("'", "''"))))
+                elif type(v_value) == datetime.datetime:
                     v_mog.append(p_fields[k].v_mask.replace('#', "'{0}'".format(v_value)))
                 else:
                     v_mog.append(p_fields[k].v_mask.replace('#', "{0}".format(v_value)))
@@ -299,7 +376,11 @@ class SQLite(Generic):
         return None
     def Open(self, p_autocommit=True):
         try:
-            self.v_con = sqlite3.connect(self.v_service, self.v_timeout)
+            if p_autocommit:
+                self.v_con = sqlite3.connect(self.v_service, self.v_timeout, isolation_level=None)
+            else:
+                self.v_con = sqlite3.connect(self.v_service, self.v_timeout)
+
             #self.v_con.row_factory = sqlite3.Row
             self.v_cur = self.v_con.cursor()
             if self.v_foreignkeys:
@@ -309,7 +390,7 @@ class SQLite(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             v_keep = None
             if self.v_con is None:
@@ -324,15 +405,14 @@ class SQLite(Generic):
                     v_table.Columns.append(c[0])
                 v_row = self.v_cur.fetchone()
                 while v_row is not None:
+                    v_row = list(v_row)
                     if p_alltypesstr:
-                        v_rowtmp = list(v_row)
                         for j in range(0, len(v_table.Columns)):
-                            if v_rowtmp[j] != None:
-                                v_rowtmp[j] = str(v_rowtmp[j])
+                            if v_row[j] != None:
+                                v_row[j] = str(v_row[j])
                             else:
-                                v_rowtmp[j] = ''
-                        v_row = tuple(v_rowtmp)
-                    v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                v_row[j] = ''
+                    v_table.AddRow(v_row, p_simple)
                     v_row = self.v_cur.fetchone()
             return v_table
         except Spartacus.Database.Exception as exc:
@@ -453,7 +533,7 @@ class SQLite(Generic):
         pass
     def GetStatus(self):
         return None
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -468,28 +548,26 @@ class SQLite(Generic):
                     if p_blocksize > 0:
                         k = 0
                         while v_row is not None and k < p_blocksize:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                             k = k + 1
                     else:
                         while v_row is not None:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                 if self.v_start:
                     self.v_start = False
@@ -535,6 +613,8 @@ class SQLite(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
+    def Special(self, p_sql):
+        return self.Query(p_sql).Pretty()
 
 '''
 ------------------------------------------------------------------------
@@ -569,7 +649,7 @@ class Memory(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -581,15 +661,14 @@ class Memory(Generic):
                         v_table.Columns.append(c[0])
                     v_row = self.v_cur.fetchone()
                     while v_row is not None:
+                        v_row = list(v_row)
                         if p_alltypesstr:
-                            v_rowtmp = list(v_row)
                             for j in range(0, len(v_table.Columns)):
-                                if v_rowtmp[j] != None:
-                                    v_rowtmp[j] = str(v_rowtmp[j])
+                                if v_row[j] != None:
+                                    v_row[j] = str(v_row[j])
                                 else:
-                                    v_rowtmp[j] = ''
-                            v_row = tuple(v_rowtmp)
-                        v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                    v_row[j] = ''
+                        v_table.AddRow(v_row, p_simple)
                         v_row = self.v_cur.fetchone()
                 return v_table
         except Spartacus.Database.Exception as exc:
@@ -689,7 +768,7 @@ class Memory(Generic):
         pass
     def GetStatus(self):
         return None
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -704,28 +783,26 @@ class Memory(Generic):
                     if p_blocksize > 0:
                         k = 0
                         while v_row is not None and k < p_blocksize:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                             k = k + 1
                     else:
                         while v_row is not None:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                 if self.v_start:
                     self.v_start = False
@@ -771,6 +848,8 @@ class Memory(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
+    def Special(self, p_sql):
+        return self.Query(p_sql).Pretty()
 
 '''
 ------------------------------------------------------------------------
@@ -778,7 +857,7 @@ PostgreSQL
 ------------------------------------------------------------------------
 '''
 class PostgreSQL(Generic):
-    def __init__(self, p_host, p_port, p_service, p_user, p_password):
+    def __init__(self, p_host, p_port, p_service, p_user, p_password, p_application_name='spartacus'):
         if 'PostgreSQL' in v_supported_rdbms:
             self.v_host = p_host
             if p_port is None or p_port == '':
@@ -791,32 +870,64 @@ class PostgreSQL(Generic):
                 self.v_service = p_service
             self.v_user = p_user
             self.v_password = p_password
+            self.v_application_name = p_application_name
             self.v_con = None
             self.v_cur = None
+            self.v_special = PGSpecial()
+            self.v_help = Spartacus.Database.DataTable()
+            self.v_help.Columns = ['Command', 'Syntax', 'Description']
+            self.v_help.AddRow(['\\?', '\\?', 'Show Commands.'])
+            self.v_help.AddRow(['\\h', '\\h', 'Show SQL syntax and help.'])
+            self.v_help.AddRow(['\\list', '\\list', 'List databases.'])
+            self.v_help.AddRow(['\\l', '\\l[+] [pattern]', 'List databases.'])
+            self.v_help.AddRow(['\\du', '\\du[+] [pattern]', 'List roles.'])
+            self.v_help.AddRow(['\\dx', '\\dx[+] [pattern]', 'List extensions.'])
+            self.v_help.AddRow(['\\db', '\\db[+] [pattern]', 'List tablespaces.'])
+            self.v_help.AddRow(['\\dn', '\\dn[+] [pattern]', 'List schemas.'])
+            self.v_help.AddRow(['\\dt', '\\dt[+] [pattern]', 'List tables.'])
+            self.v_help.AddRow(['\\dv', '\\dv[+] [pattern]', 'List views.'])
+            self.v_help.AddRow(['\\ds', '\\ds[+] [pattern]', 'List sequences.'])
+            self.v_help.AddRow(['\\d', '\\d[+] [pattern]', 'List or describe tables, views and sequences.'])
+            self.v_help.AddRow(['DESCRIBE', 'DESCRIBE [pattern]', 'Describe tables, views and sequences.'])
+            self.v_help.AddRow(['describe', 'DESCRIBE [pattern]', 'Describe tables, views and sequences.'])
+            self.v_help.AddRow(['\\di', '\\di[+] [pattern]', 'List indexes.'])
+            self.v_help.AddRow(['\\dm', '\\dm[+] [pattern]', 'List materialized views.'])
+            self.v_help.AddRow(['\\df', '\\df[+] [pattern]', 'List functions.'])
+            self.v_help.AddRow(['\\sf', '\\sf[+] FUNCNAME', "Show a function's definition."])
+            self.v_help.AddRow(['\\dT', '\\dT[+] [pattern]', 'List data types.'])
+            self.v_help.AddRow(['\\x', '\\x', 'Toggle expanded output.'])
+            self.v_help.AddRow(['\\timing', '\\timing', 'Toggle timing of commands.'])
+            self.v_expanded = False
+            self.v_timing = False
+            psycopg2.extras.register_default_json(loads=lambda x: x)
+            psycopg2.extras.register_default_jsonb(loads=lambda x: x)
         else:
             raise Spartacus.Database.Exception("PostgreSQL is not supported. Please install it with 'pip install Spartacus[postgresql]'.")
     def GetConnectionString(self):
         if self.v_host is None or self.v_host == '':
             if self.v_password is None or self.v_password == '':
-                return "port={0} dbname='{1}' user='{2}'".format(
-                    self.v_port,
-                    self.v_service,
-                    self.v_user
-                )
-            else:
-                return "port={0} dbname='{1}' user='{2}' password='{3}'".format(
+                return "port={0} dbname='{1}' user='{2}' application_name='{3}'".format(
                     self.v_port,
                     self.v_service,
                     self.v_user,
-                    self.v_password
+                    self.v_application_name
+                )
+            else:
+                return "port={0} dbname='{1}' user='{2}' password='{3}' application_name='{4}'".format(
+                    self.v_port,
+                    self.v_service,
+                    self.v_user,
+                    self.v_password,
+                    self.v_application_name
                 )
         else:
-            return "host='{0}' port={1} dbname='{2}' user='{3}' password='{4}'".format(
+            return "host='{0}' port={1} dbname='{2}' user='{3}' password='{4}' application_name='{5}'".format(
                 self.v_host,
                 self.v_port,
                 self.v_service,
                 self.v_user,
-                self.v_password
+                self.v_password,
+                self.v_application_name
             )
     def Open(self, p_autocommit=True):
         try:
@@ -839,7 +950,7 @@ class PostgreSQL(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             v_keep = None
             if self.v_con is None:
@@ -1040,7 +1151,7 @@ class PostgreSQL(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -1105,6 +1216,80 @@ class PostgreSQL(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
+    def Special(self, p_sql):
+        try:
+            v_keep = None
+            if self.v_con is None:
+                self.Open()
+                v_keep = False
+            else:
+                v_keep = True
+            v_command = p_sql.lstrip().split(' ')[0].rstrip('+')
+            v_title = None
+            v_table = None
+            v_status = None
+            if v_command == '\\?':
+                v_table = self.v_help
+            else:
+                v_aux = self.v_help.Select('Command', v_command)
+                if len(v_aux.Rows) > 0:
+                    for r in self.v_special.execute(self.v_cur, p_sql):
+                        v_result = r
+                    if v_result[0]:
+                        v_title = v_result[0]
+                    if v_result[1]:
+                        v_table = DataTable()
+                        v_table.Columns = v_result[2]
+                        if isinstance(v_result[1], type(self.v_cur)):
+                            if v_result[1].description:
+                                v_table.Rows = v_result[1].fetchall()
+                        else:
+                            for r in v_result[1]:
+                                v_table.AddRow(r)
+                    if v_result[3]:
+                        v_status = v_result[3]
+                        if v_status.strip() == 'Expanded display is on.':
+                            self.v_expanded = True
+                        elif v_status.strip() == 'Expanded display is off.':
+                            self.v_expanded = False
+                        elif v_status.strip() == 'Timing is on.':
+                            self.v_timing = True
+                        elif v_status.strip() == 'Timing is off.':
+                            self.v_timing = False
+                else:
+                    if self.v_timing:
+                        v_timestart = datetime.datetime.now()
+                    v_table = self.Query(p_sql)
+                    v_status = self.GetStatus()
+                    if self.v_timing:
+                        v_status = v_status + '\nTime: {0}'.format(datetime.datetime.now() - v_timestart)
+
+            if v_title and v_table and len(v_table.Rows) > 0 and v_status:
+                return v_title + '\n' + v_table.Pretty(self.v_expanded) + '\n' + v_status
+            elif v_title and v_table and len(v_table.Rows) > 0:
+                return v_title + '\n' + v_table.Pretty(self.v_expanded)
+            elif v_title and v_status:
+                return v_title + '\n' + v_status
+            elif v_title:
+                return v_title
+            elif v_table and len(v_table.Rows) > 0 and v_status:
+                return v_table.Pretty(self.v_expanded) + '\n' + v_status
+            elif v_table and len(v_table.Rows) > 0:
+                return v_table.Pretty(self.v_expanded)
+            elif v_status:
+                return v_status
+            else:
+                return ''
+        except Spartacus.Database.Exception as exc:
+            raise exc
+        except psycopg2.Error as exc:
+            raise Spartacus.Database.Exception(str(exc))
+        except Exception as exc:
+            raise Spartacus.Database.Exception(str(exc))
+        finally:
+            if not v_keep:
+                self.Close()
+
 
 '''
 ------------------------------------------------------------------------
@@ -1140,7 +1325,7 @@ class MySQL(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             v_keep = None
             if self.v_con is None:
@@ -1280,7 +1465,7 @@ class MySQL(Generic):
         pass
     def GetStatus(self):
         return None
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -1345,6 +1530,8 @@ class MySQL(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
+    def Special(self, p_sql):
+        return self.Query(p_sql).Pretty()
 
 '''
 ------------------------------------------------------------------------
@@ -1380,7 +1567,7 @@ class MariaDB(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             v_keep = None
             if self.v_con is None:
@@ -1520,7 +1707,7 @@ class MariaDB(Generic):
         pass
     def GetStatus(self):
         return None
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -1585,6 +1772,8 @@ class MariaDB(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
+    def Special(self, p_sql):
+        return self.Query(p_sql).Pretty()
 
 '''
 ------------------------------------------------------------------------
@@ -1619,7 +1808,7 @@ class Firebird(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             v_keep = None
             if self.v_con is None:
@@ -1634,15 +1823,14 @@ class Firebird(Generic):
                     v_table.Columns.append(c[0])
                 v_row = self.v_cur.fetchone()
                 while v_row is not None:
+                    v_row = list(v_row)
                     if p_alltypesstr:
-                        v_rowtmp = list(v_row)
                         for j in range(0, len(v_table.Columns)):
-                            if v_rowtmp[j] != None:
-                                v_rowtmp[j] = str(v_rowtmp[j])
+                            if v_row[j] != None:
+                                v_row[j] = str(v_row[j])
                             else:
-                                v_rowtmp[j] = ''
-                        v_row = tuple(v_rowtmp)
-                    v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                v_row[j] = ''
+                    v_table.AddRow(v_row, p_simple)
                     v_row = self.v_cur.fetchone()
             return v_table
         except Spartacus.Database.Exception as exc:
@@ -1763,7 +1951,7 @@ class Firebird(Generic):
         pass
     def GetStatus(self):
         return None
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -1778,28 +1966,26 @@ class Firebird(Generic):
                     if p_blocksize > 0:
                         k = 0
                         while v_row is not None and k < p_blocksize:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                             k = k + 1
                     else:
                         while v_row is not None:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                 if self.v_start:
                     self.v_start = False
@@ -1844,6 +2030,8 @@ class Firebird(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
+    def Special(self, p_sql):
+        return self.Query(p_sql).Pretty()
 
 '''
 ------------------------------------------------------------------------
@@ -1854,8 +2042,14 @@ class Oracle(Generic):
     def __init__(self, p_host, p_port, p_service, p_user, p_password):
         if 'Oracle' in v_supported_rdbms:
             self.v_host = p_host
-            self.v_port = p_port
-            self.v_service = p_service
+            if p_port is None or p_port == '':
+                self.v_port = 1521
+            else:
+                self.v_port = p_port
+            if p_service is None or p_service == '':
+                self.v_service = 'xe'
+            else:
+                self.v_service = p_service
             self.v_user = p_user
             self.v_password = p_password
             self.v_con = None
@@ -1863,23 +2057,24 @@ class Oracle(Generic):
         else:
             raise Spartacus.Database.Exception("Oracle is not supported. Please install it with 'pip install Spartacus[oracle]'.")
     def GetConnectionString(self):
-        return None
+        return '{0}/{1}@{2}:{3}/{4}'.format(
+            self.v_user,
+            self.v_password,
+            self.v_host,
+            self.v_port,
+            self.v_service
+        )
     def Open(self, p_autocommit=True):
         try:
-            self.v_con = cx_Oracle.connect('{0}/{1}@{2}:{3}/{4}'.format(
-                self.v_user,
-                self.v_password,
-                self.v_host,
-                self.v_port,
-                self.v_service
-            ))
+            self.v_con = cx_Oracle.connect(self.GetConnectionString())
             self.v_cur = self.v_con.cursor()
             self.v_start = True
         except cx_Oracle.Error as exc:
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             v_keep = None
             if self.v_con is None:
@@ -1894,15 +2089,14 @@ class Oracle(Generic):
                     v_table.Columns.append(c[0])
                 v_row = self.v_cur.fetchone()
                 while v_row is not None:
+                    v_row = list(v_row)
                     if p_alltypesstr:
-                        v_rowtmp = list(v_row)
                         for j in range(0, len(v_table.Columns)):
-                            if v_rowtmp[j] != None:
-                                v_rowtmp[j] = str(v_rowtmp[j])
+                            if v_row[j] != None:
+                                v_row[j] = str(v_row[j])
                             else:
-                                v_rowtmp[j] = ''
-                        v_row = tuple(v_rowtmp)
-                    v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                v_row[j] = ''
+                    v_table.AddRow(v_row, p_simple)
                     v_row = self.v_cur.fetchone()
             return v_table
         except Spartacus.Database.Exception as exc:
@@ -1985,7 +2179,14 @@ class Oracle(Generic):
     def GetPID(self):
         return None
     def Terminate(self, p_pid):
-        pass
+        try:
+            self.Execute("alter system kill session '{0}' immediate".format(p_pid))
+        except Spartacus.Database.Exception as exc:
+            raise exc
+        except cx_Oracle.Error as exc:
+            raise Spartacus.Database.Exception(str(exc))
+        except Exception as exc:
+            raise Spartacus.Database.Exception(str(exc))
     def GetFields(self, p_sql):
         try:
             v_keep = None
@@ -2000,12 +2201,12 @@ class Oracle(Generic):
             if r != None:
                 k = 0
                 for c in self.v_cur.description:
-                    v_fields.append(DataField(c[0], p_type=type(r[k]), p_dbtype=type(r[k])))
+                    v_fields.append(DataField(c[0], p_type=type(r[k]), p_dbtype=c[1].__name__))
                     k = k + 1
             else:
                 k = 0
                 for c in self.v_cur.description:
-                    v_fields.append(DataField(c[0], p_type=type(None), p_dbtype=type(None)))
+                    v_fields.append(DataField(c[0], p_type=type(None), p_dbtype=c[1].__name__))
                     k = k + 1
             return v_fields
         except Spartacus.Database.Exception as exc:
@@ -2023,7 +2224,7 @@ class Oracle(Generic):
         pass
     def GetStatus(self):
         return None
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -2038,28 +2239,26 @@ class Oracle(Generic):
                     if p_blocksize > 0:
                         k = 0
                         while v_row is not None and k < p_blocksize:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                             k = k + 1
                     else:
                         while v_row is not None:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                 if self.v_start:
                     self.v_start = False
@@ -2104,7 +2303,8 @@ class Oracle(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
-
+    def Special(self, p_sql):
+        return self.Query(p_sql).Pretty()
 '''
 ------------------------------------------------------------------------
 MSSQL
@@ -2139,7 +2339,7 @@ class MSSQL(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             v_keep = None
             if self.v_con is None:
@@ -2154,15 +2354,14 @@ class MSSQL(Generic):
                     v_table.Columns.append(c[0])
                 v_row = self.v_cur.fetchone()
                 while v_row is not None:
+                    v_row = list(v_row)
                     if p_alltypesstr:
-                        v_rowtmp = list(v_row)
                         for j in range(0, len(v_table.Columns)):
-                            if v_rowtmp[j] != None:
-                                v_rowtmp[j] = str(v_rowtmp[j])
+                            if v_row[j] != None:
+                                v_row[j] = str(v_row[j])
                             else:
-                                v_rowtmp[j] = ''
-                        v_row = tuple(v_rowtmp)
-                    v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                v_row[j] = ''
+                    v_table.AddRow(v_row, p_simple)
                     v_row = self.v_cur.fetchone()
             return v_table
         except Spartacus.Database.Exception as exc:
@@ -2283,7 +2482,7 @@ class MSSQL(Generic):
         pass
     def GetStatus(self):
         return None
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -2298,28 +2497,26 @@ class MSSQL(Generic):
                     if p_blocksize > 0:
                         k = 0
                         while v_row is not None and k < p_blocksize:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                             k = k + 1
                     else:
                         while v_row is not None:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                 if self.v_start:
                     self.v_start = False
@@ -2364,6 +2561,8 @@ class MSSQL(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
+    def Special(self, p_sql):
+        return self.Query(p_sql).Pretty()
 
 '''
 ------------------------------------------------------------------------
@@ -2402,7 +2601,7 @@ class IBMDB2(Generic):
             raise Spartacus.Database.Exception(str(exc))
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
-    def Query(self, p_sql, p_alltypesstr=False):
+    def Query(self, p_sql, p_alltypesstr=False, p_simple=False):
         try:
             v_keep = None
             if self.v_con is None:
@@ -2417,15 +2616,14 @@ class IBMDB2(Generic):
                     v_table.Columns.append(c[0])
                 v_row = self.v_cur.fetchone()
                 while v_row is not None:
+                    v_row = list(v_row)
                     if p_alltypesstr:
-                        v_rowtmp = list(v_row)
                         for j in range(0, len(v_table.Columns)):
-                            if v_rowtmp[j] != None:
-                                v_rowtmp[j] = str(v_rowtmp[j])
+                            if v_row[j] != None:
+                                v_row[j] = str(v_row[j])
                             else:
-                                v_rowtmp[j] = ''
-                        v_row = tuple(v_rowtmp)
-                    v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                v_row[j] = ''
+                    v_table.AddRow(v_row, p_simple)
                     v_row = self.v_cur.fetchone()
             return v_table
         except Spartacus.Database.Exception as exc:
@@ -2546,7 +2744,7 @@ class IBMDB2(Generic):
         pass
     def GetStatus(self):
         return None
-    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False):
+    def QueryBlock(self, p_sql, p_blocksize, p_alltypesstr=False, p_simple=False):
         try:
             if self.v_con is None:
                 raise Spartacus.Database.Exception('This method should be called in the middle of Open() and Close() calls.')
@@ -2561,28 +2759,26 @@ class IBMDB2(Generic):
                     if p_blocksize > 0:
                         k = 0
                         while v_row is not None and k < p_blocksize:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                             k = k + 1
                     else:
                         while v_row is not None:
+                            v_row = list(v_row)
                             if p_alltypesstr:
-                                v_rowtmp = list(v_row)
                                 for j in range(0, len(v_table.Columns)):
-                                    if v_rowtmp[j] != None:
-                                        v_rowtmp[j] = str(v_rowtmp[j])
+                                    if v_row[j] != None:
+                                        v_row[j] = str(v_row[j])
                                     else:
-                                        v_rowtmp[j] = ''
-                                v_row = tuple(v_rowtmp)
-                            v_table.Rows.append(OrderedDict(zip(v_table.Columns, v_row)))
+                                        v_row[j] = ''
+                            v_table.AddRow(v_row, p_simple)
                             v_row = self.v_cur.fetchone()
                 if self.v_start:
                     self.v_start = False
@@ -2627,3 +2823,5 @@ class IBMDB2(Generic):
         except Exception as exc:
             raise Spartacus.Database.Exception(str(exc))
         return v_return
+    def Special(self, p_sql):
+        return self.Query(p_sql).Pretty()

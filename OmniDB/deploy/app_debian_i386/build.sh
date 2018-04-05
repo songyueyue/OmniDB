@@ -1,7 +1,13 @@
 #!/bin/bash
 
-VERSION=2.3.0
+VERSION=2.6.0
 ARCH=debian-i386
+
+echo "Installing OmniDB dependencies..."
+pip install pip --upgrade
+pip install -r ~/OmniDB/requirements.txt --upgrade
+pip install -r ~/OmniDB/OmniDB/deploy/requirements_for_deploy_app.txt --upgrade
+echo "Done"
 
 cd ~/OmniDB/OmniDB
 
@@ -11,8 +17,12 @@ rm -rf dist
 rm -rf deploy/packages
 echo "Done."
 
+echo -n "Switching to Release Mode..."
+sed -i -e 's/DEV_MODE = True/DEV_MODE = False/g' OmniDB/custom_settings.py
+echo "Done."
+
 echo -n "Switching to Desktop Mode... "
-sed -i -e 's/DESKTOP_MODE               = False/DESKTOP_MODE               = True/g' OmniDB/settings.py
+sed -i -e 's/DESKTOP_MODE = False/DESKTOP_MODE = True/g' OmniDB/custom_settings.py
 echo "Done."
 
 echo "Generating bundles... "
@@ -24,6 +34,7 @@ rm -rf build
 mkdir deploy/packages
 cp dist/omnidb-config/omnidb-config dist/omnidb-app/omnidb-config-app
 mv dist/omnidb-app deploy/packages
+chmod 777 deploy/packages/omnidb-app/OmniDB_app/static/temp/
 rm -rf dist
 echo "Done."
 
@@ -75,7 +86,11 @@ mkdir opt
 mv ../omnidb-app opt/
 mkdir -p usr/bin
 cd usr/bin
-ln -s /opt/omnidb-app/omnidb-app .
+cat > omnidb-app <<EOF
+#!/bin/bash
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.:/opt/omnidb-app/ /opt/omnidb-app/omnidb-app \$@
+EOF
+chmod 777 omnidb-app
 ln -s /opt/omnidb-app/omnidb-config-app .
 cd ../..
 mkdir -p usr/share
@@ -85,7 +100,7 @@ cat > usr/share/applications/omnidb-app.desktop <<EOF
 [Desktop Entry]
 Name=OmniDB
 Comment=OmniDB
-Exec="/opt/omnidb-app/omnidb-app"
+Exec="/usr/bin/omnidb-app"
 Terminal=false
 Type=Application
 Icon=omnidb

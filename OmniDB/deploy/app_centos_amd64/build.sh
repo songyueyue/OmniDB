@@ -1,7 +1,13 @@
 #!/bin/sh -e
 
-VERSION=2.3.0
+VERSION=2.6.0
 ARCH=centos-amd64
+
+echo "Installing OmniDB dependencies..."
+pip install pip --upgrade
+pip install -r ~/OmniDB/requirements.txt --upgrade
+pip install -r ~/OmniDB/OmniDB/deploy/requirements_for_deploy_app.txt --upgrade
+echo "Done"
 
 cd ~/OmniDB/OmniDB
 
@@ -11,8 +17,12 @@ rm -rf dist
 rm -rf deploy/packages
 echo "Done."
 
+echo -n "Switching to Release Mode..."
+sed -i -e 's/DEV_MODE = True/DEV_MODE = False/g' OmniDB/custom_settings.py
+echo "Done."
+
 echo -n "Switching to Desktop Mode... "
-sed -i -e 's/DESKTOP_MODE               = False/DESKTOP_MODE               = True/g' OmniDB/settings.py
+sed -i -e 's/DESKTOP_MODE = False/DESKTOP_MODE = True/g' OmniDB/custom_settings.py
 echo "Done."
 
 echo "Generating bundles... "
@@ -24,6 +34,7 @@ rm -rf build
 mkdir deploy/packages
 cp dist/omnidb-config/omnidb-config dist/omnidb-app/omnidb-config-app
 mv dist/omnidb-app deploy/packages
+chmod 777 deploy/packages/omnidb-app/OmniDB_app/static/temp/
 rm -rf dist
 echo "Done."
 
@@ -103,11 +114,15 @@ cat > SOURCES/omnidb-app.desktop <<EOF
 [Desktop Entry]
 Name=OmniDB
 Comment=OmniDB
-Exec="/opt/omnidb-app/omnidb-app"
+Exec="/usr/bin/omnidb-app"
 Terminal=false
 Type=Application
 Icon=omnidb
 Categories=Development;
+EOF
+cat > SOURCES/omnidb-app.sh <<EOF
+#!/bin/bash
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.:/opt/omnidb-app/ /opt/omnidb-app/omnidb-app \$@
 EOF
 
 cat > SPECS/omnidb-app.spec <<EOF
@@ -155,7 +170,8 @@ mkdir -p %{buildroot}/%{_datadir}/applications
 cp -r ../../SOURCES/icons %{buildroot}/%{_datadir}/
 desktop-file-install --dir=%{buildroot}/%{_datadir}/applications ../../SOURCES/%{name}.desktop
 mkdir -p %{buildroot}/%{_bindir}
-ln -s /opt/%{name}/%{name} %{buildroot}/%{_bindir}/%{name}
+cp ../../SOURCES/%{name}.sh %{buildroot}/%{_bindir}/%{name}
+chmod 777 %{buildroot}/%{_bindir}/%{name}
 ln -s /opt/%{name}/%{configname} %{buildroot}/%{_bindir}/%{configname}
 
 %post

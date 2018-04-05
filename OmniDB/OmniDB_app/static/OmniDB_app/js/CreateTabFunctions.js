@@ -14,111 +14,251 @@ function initCreateTabFunctions() {
 
   var v_createConnTabFunction = function(p_index,p_create_query_tab = true) {
 
-  	v_connTabControl.removeTabIndex(v_connTabControl.tabList.length-1);
-  	var v_tab = v_connTabControl.createTab(
-        '<span id="tab_title"><img src="/static/OmniDB_app/images/' + v_connTabControl.tag.connections[0].v_db_type + '_medium.png"/> ' + v_connTabControl.tag.connections[0].v_alias + '</span><span title="Close" id="tab_close"><img src="/static/OmniDB_app/images/tab_close.png"/></span>',
-        false,
-        null,
-        null,
-        null,
-        null,
-        true,
-        function() {
-          if(this.tag != null) {
-            checkTabStatus(this);
-            refreshHeights(true);
+    if (v_connTabControl.tag.connections.length==0) {
+      v_connTabControl.selectTabIndex(v_connTabControl.tabList.length-2);
+      showAlert('Create connections first.')
+    }
+    else {
+
+    	v_connTabControl.removeTabIndex(v_connTabControl.tabList.length-1);
+    	var v_tab = v_connTabControl.createTab(
+          '<span id="tab_title"><img src="/static/OmniDB_app/images/' + v_connTabControl.tag.connections[0].v_db_type + '_medium.png"/> ' + v_connTabControl.tag.connections[0].v_alias + '</span><span title="Close" id="tab_close"><img src="/static/OmniDB_app/images/tab_close.png"/></span>',
+          false,
+          null,
+          null,
+          null,
+          null,
+          true,
+          function() {
+            if(this.tag != null) {
+              checkTabStatus(this);
+              refreshHeights(true);
+            }
+            if(this.tag != null && this.tag.tabControl != null && this.tag.tabControl.selectedTab.tag.editor != null) {
+                this.tag.tabControl.selectedTab.tag.editor.focus();
+            }
           }
-          if(this.tag != null && this.tag.tabControl != null && this.tag.tabControl.selectedTab.tag.editor != null) {
-              this.tag.tabControl.selectedTab.tag.editor.focus();
-          }
-        }
-    );
+      );
 
-  	v_connTabControl.selectTab(v_tab);
+    	v_connTabControl.selectTab(v_tab);
 
-  	var v_html = "<div id='" + v_tab.id + "_div_left' class='div_left' style='float:left; position: relative; width:20%; '>" +
-  	"<div style='padding-right: 12px;'><div id='" + v_tab.id + "_div_select_db' style='width: 100%; display: inline-block;'></div>" +
-  	"</div>" +
-  	"<div onmousedown='resizeHorizontal(event)' style='width: 10px; height: 100%; cursor: ew-resize; position: absolute; top: 0px; right: 0px;'><div class='resize_line_vertical' style='width: 5px; height: 100%; border-right: 1px dotted #c3c3c3;'></div><div style='width:5px;'></div></div>" +
-  	"<div style='width: 97%;'><div id='" + v_tab.id + "_tree' style='margin-top: 10px; overflow: auto;'></div>" +
-  	"</div>" +
-  	"<div id='html1'>" +
-  	"</div>" +
-  	"</div>" +
-  	"<div id='" + v_tab.id + "_div_right' class='div_right' style='float:left; width:80%;'>" +
-  	"<div id='" + v_tab.id + "_tabs'>" +
-  	"<ul>" +
-  	"</ul>" +
-  	"</div>" +
-  	"</div>";
+    	var v_html = "<div id='" + v_tab.id + "_div_left' class='div_left' style='float:left; position: relative; width:20%; '>" +
+    	"<div style='padding-right: 12px;'><div id='" + v_tab.id + "_div_select_db' style='width: 100%; display: inline-block;'></div>" +
+    	"</div>" +
+    	"<div onmousedown='resizeHorizontal(event)' style='width: 10px; height: 100%; cursor: ew-resize; position: absolute; top: 0px; right: 0px;'><div class='resize_line_vertical' style='width: 5px; height: 100%; border-right: 1px dotted #c3c3c3;'></div><div style='width:5px;'></div></div>" +
+    	"<div style='margin-right: 10px;'><div id='" + v_tab.id + "_tree' style='margin-top: 10px; overflow: auto; height: 50%;'></div>" +
+      "<div onmousedown='resizeTreeVertical(event)' style='width: 100%; height: 10px; cursor: ns-resize;'><div class='resize_line_horizontal' style='height: 5px; border-bottom: 1px dotted #c3c3c3;'></div><div style='height:5px;'></div></div>" +
 
-    var v_tab_title_span = document.getElementById('tab_title');
-    v_tab_title_span.id = 'tab_title_' + v_tab.id;
-    var v_tab_close_span = document.getElementById('tab_close');
-		v_tab_close_span.id = 'tab_close_' + v_tab.id;
-		v_tab_close_span.onclick = function() {
-      var v_this_tab = v_tab;
-      showConfirm('Are you sure you want to remove this tab?',
-                    function() {
-                      //Go through all child tabs and properly send close request for each
-                      var v_tabs_to_remove = [];
-                      for (var i=0; i < v_connTabControl.selectedTab.tag.tabControl.tabList.length; i++) {
-                        var v_tab = v_connTabControl.selectedTab.tag.tabControl.tabList[i];
-                        if (v_tab.tag.mode=='query' || v_tab.tag.mode=='edit' || v_tab.tag.mode=='debug') {
-      										var v_message_data = { tab_id: v_tab.tag.tab_id, tab_db_id: null };
-      										if (v_tab.tag.mode=='query')
-      											v_message_data.tab_db_id = v_tab.tag.tab_db_id;
-                          v_tabs_to_remove.push(v_message_data);
-      									}
-                      }
-                      if (v_tabs_to_remove.length>0)
-                        sendWebSocketMessage(v_queryWebSocket, v_queryRequestCodes.CloseTab, v_tabs_to_remove, false, null);
-                      v_this_tab.removeTab();
-                    });
-		};
+      "<div id='tree_tabs_" + v_tab.id + "' style='position: relative;'>" +
+      "<div id='" + v_tab.id + "_loading' class='div_loading_local' style='z-index: 1000;'></div>" +
+      "<ul>" +
+      "<li id='tree_tabs_" + v_tab.id + "_tab1'>Properties</li>" +
+      "<li id='tree_tabs_" + v_tab.id + "_tab2'>DDL</li>" +
+      "</ul>" +
+      "<div id='div_tree_tabs_" + v_tab.id + "_tab1' style='position: relative;'>" +
+      "<div id='" + v_tab.id + "_properties' style='width: 100%; overflow: auto;'></div>" +
+      "</div>" +
+      "<div id='div_tree_tabs_" + v_tab.id + "_tab2'>" +
+      "<div id='" + v_tab.id + "_ddl' style='width: 100%; line-height: 16px;'></div>" +
+      "</div>" +
+      "</div>" +
+      "</div>" +
+    	"</div>" +
+    	"<div id='" + v_tab.id + "_div_right' class='div_right' style='float:left; width:80%;'>" +
+    	"<div id='" + v_tab.id + "_tabs'>" +
+    	"<ul>" +
+    	"</ul>" +
+    	"</div>" +
+    	"</div>";
 
-  	var v_div = document.getElementById('div_' + v_tab.id);
-  	v_div.innerHTML = v_html;
+      var v_tab_title_span = document.getElementById('tab_title');
+      v_tab_title_span.id = 'tab_title_' + v_tab.id;
+      var v_tab_close_span = document.getElementById('tab_close');
+  		v_tab_close_span.id = 'tab_close_' + v_tab.id;
+  		v_tab_close_span.onclick = function() {
+        var v_this_tab = v_tab;
+        showConfirm('Are you sure you want to remove this tab?',
+                      function() {
+                        //Go through all child tabs and properly send close request for each
+                        var v_tabs_to_remove = [];
+                        for (var i=0; i < v_connTabControl.selectedTab.tag.tabControl.tabList.length; i++) {
 
-  	var v_height  = window.innerHeight - $('#' + v_tab.id + '_tree').offset().top - 60;
-  	document.getElementById(v_tab.id + '_tree').style.height = v_height + "px";
+                          var v_tab = v_connTabControl.selectedTab.tag.tabControl.tabList[i];
+                          if (v_tab.tag.mode=='query' || v_tab.tag.mode=='edit' || v_tab.tag.mode=='debug' || v_tab.tag.mode=='console') {
+        										var v_message_data = { tab_id: v_tab.tag.tab_id, tab_db_id: null };
+        										if (v_tab.tag.mode=='query')
+        											v_message_data.tab_db_id = v_tab.tag.tab_db_id;
+                            v_tabs_to_remove.push(v_message_data);
+        									}
+                          else if (v_tab.tag.mode=='monitor_dashboard') {
+                            v_tab.tag.tab_active = false;
+                            cancelMonitorUnits(v_tab.tag);
+                          }
+                        }
+                        if (v_tabs_to_remove.length>0)
+                          sendWebSocketMessage(v_queryWebSocket, v_queryRequestCodes.CloseTab, v_tabs_to_remove, false, null);
+                        v_this_tab.removeTab();
+                      });
+  		};
 
-  	var v_currTabControl = createTabControl(v_tab.id + '_tabs',0,null);
+    	var v_div = document.getElementById('div_' + v_tab.id);
+    	v_div.innerHTML = v_html;
 
-  	v_currTabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+      var v_treeTabs = createTabControl('tree_tabs_' + v_tab.id,0,null);
+      v_treeTabs.selectTabIndex(0);
 
-  	var v_tag = {
-  		tabControl: v_currTabControl,
-      tabTitle: v_tab_title_span,
-  		divTree: document.getElementById(v_tab.id + '_tree'),
-  		divLeft: document.getElementById(v_tab.id + '_div_left'),
-  		divRight: document.getElementById(v_tab.id + '_div_right'),
-  		selectedDatabaseIndex: 0,
-  		connTabControl: v_connTabControl,
-      mode: 'connection'
-  	};
+    	var v_currTabControl = createTabControl(v_tab.id + '_tabs',0,null);
 
-  	v_tab.tag = v_tag;
+    	v_currTabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
 
-    if (p_create_query_tab)
-  	 v_connTabControl.tag.createQueryTab();
+      //DDL editor
+      var v_ddl_div = document.getElementById(v_tab.id + '_ddl');
 
-    var v_index = 0;
-    if (p_index)
-      v_index = p_index;
+  		var langTools = ace.require("ace/ext/language_tools");
+  		var v_editor = ace.edit(v_tab.id + '_ddl');
+      v_editor.$blockScrolling = Infinity;
+  		v_editor.setTheme("ace/theme/" + v_editor_theme);
+  		v_editor.session.setMode("ace/mode/sql");
+  		v_editor.commands.bindKey(".", "startAutocomplete");
 
-  	var v_div_select_db = document.getElementById(v_tab.id + '_div_select_db');
-  	v_div_select_db.innerHTML = v_connTabControl.tag.selectHTML;
-    v_div_select_db.childNodes[0].childNodes[v_index].selected=true
-  	$(v_div_select_db.childNodes[0]).msDropDown();
+  		v_editor.setFontSize(Number(v_editor_font_size));
 
-  	changeDatabase(v_index)
+  		v_editor.commands.bindKey("ctrl-space", null);
 
-  	v_connTabControl.createTab('+',false,v_createConnTabFunction);
+      //Remove shortcuts from ace in order to avoid conflict with omnidb shortcuts
+      v_editor.commands.bindKey("Cmd-,", null)
+      v_editor.commands.bindKey("Ctrl-,", null)
+      v_editor.commands.bindKey("Cmd-Delete", null)
+      v_editor.commands.bindKey("Ctrl-Delete", null)
+      v_editor.commands.bindKey("Ctrl-Up", null)
+      v_editor.commands.bindKey("Ctrl-Down", null)
+      v_editor.setReadOnly(true);
 
-    setTimeout(function() {
-      refreshTreeHeight();
-    },10);
+  		v_ddl_div.onclick = function() {
+
+  			v_editor.focus();
+
+  		};
+
+      //Properties Grid
+      var v_divProperties = document.getElementById(v_tab.id + '_properties');
+
+      var columnProperties = [];
+
+      var col = new Object();
+      col.title =  'Property';
+      col.readOnly = true;
+      columnProperties.push(col);
+
+      var col = new Object();
+      col.title =  'Value';
+      col.readOnly = true;
+      columnProperties.push(col);
+
+      var ht = new Handsontable(v_divProperties,
+                          {
+                            data: [],
+                            columns : columnProperties,
+                            colHeaders : true,
+                            stretchH: 'all',
+                            autoColumnSize : true,
+                            manualColumnResize: false,
+                            minSpareCols :0,
+                            minSpareRows :0,
+                            fillHandle:false,
+                            contextMenu: {
+                  						callback: function (key, options) {
+                  							if (key === 'view_data') {
+                  							  	editCellData(this,options[0].start.row,options[0].start.col,this.getDataAtCell(options[0].start.row,options[0].start.col),false);
+                  							}
+                  						},
+                  						items: {
+                  							"view_data": {name: '<div style=\"position: absolute;\"><img class="img_ht" src=\"/static/OmniDB_app/images/rename.png\"></div><div style=\"padding-left: 30px;\">View Content</div>'}
+                  						}
+                				    },
+                            cells: function (row, col, prop) {
+
+                              var cellProperties = {};
+
+                              if (row % 2 == 0)
+                                cellProperties.renderer = blueHtmlRenderer;
+                              else
+                                cellProperties.renderer =whiteHtmlRenderer;
+
+
+                              return cellProperties;
+
+                            }
+                          });
+
+    	var v_tag = {
+    		tabControl: v_currTabControl,
+        tabTitle: v_tab_title_span,
+    		divTree: document.getElementById(v_tab.id + '_tree'),
+        divProperties: v_divProperties,
+        gridProperties: ht,
+        gridPropertiesCleared: true,
+        divDDL: document.getElementById(v_tab.id + '_ddl'),
+        divLoading: document.getElementById(v_tab.id + '_loading'),
+    		divLeft: document.getElementById(v_tab.id + '_div_left'),
+    		divRight: document.getElementById(v_tab.id + '_div_right'),
+        divSelectDB: document.getElementById(v_tab.id + '_div_select_db'),
+    		selectedDatabaseIndex: 0,
+    		connTabControl: v_connTabControl,
+        mode: 'connection',
+        tabCloseSpan: v_tab_close_span,
+        firstTimeOpen: true,
+        TreeTabControl: v_treeTabs,
+        currTreeTab: null,
+        ddlEditor: v_editor,
+        consoleHistoryFecthed: false,
+        consoleHistoryList: null
+    	};
+
+    	v_tab.tag = v_tag;
+
+      var v_selectPropertiesTabFunc = function() {
+  			v_treeTabs.selectTabIndex(0);
+        v_tag.currTreeTab = 'properties';
+        refreshTreeHeight();
+  		}
+
+      var v_selectDDLTabFunc = function() {
+  			v_treeTabs.selectTabIndex(1);
+        v_tag.currTreeTab = 'ddl';
+        refreshTreeHeight();
+  		}
+
+      v_tag.selectPropertiesTabFunc    = v_selectPropertiesTabFunc;
+      v_tag.selectDDLTabFunc = v_selectDDLTabFunc;
+
+      v_treeTabs.tabList[0].elementLi.onclick = v_selectPropertiesTabFunc;
+  		v_treeTabs.tabList[1].elementLi.onclick = v_selectDDLTabFunc;
+
+      v_selectPropertiesTabFunc();
+
+      var v_index = v_connTabControl.tag.connections[0].v_conn_id;
+      if (p_index)
+        v_index = p_index;
+
+    	changeDatabase(v_index);
+
+      v_tag.divSelectDB.innerHTML = v_connTabControl.tag.selectHTML;
+      v_tag.divSelectDB.childNodes[0].value=v_index;
+    	$(v_tag.divSelectDB.childNodes[0]).msDropDown();
+
+      if (p_create_query_tab) {
+         v_connTabControl.tag.createConsoleTab();
+    	   v_connTabControl.tag.createQueryTab();
+      }
+
+    	v_connTabControl.createTab('+',false,function() { v_createConnTabFunction(); });
+
+      setTimeout(function() {
+        refreshTreeHeight();
+      },10);
+
+    }
 
   }
 
@@ -168,7 +308,7 @@ function initCreateTabFunctions() {
 
   	var v_currTabControl = createTabControl(v_tab.id + '_tabs',0,null);
 
-  	v_currTabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+  	v_currTabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
 
   	var v_tag = {
   		tabControl: v_currTabControl,
@@ -188,11 +328,519 @@ function initCreateTabFunctions() {
     v_connTabControl.selectedTab.tag.tabControl.selectedTab.tag.editor.clearSelection();
     v_connTabControl.selectedTab.tag.tabControl.selectedTab.tag.editor.gotoLine(0, 0, true);
 
+    v_connTabControl.createTab('+',false,v_connTabControl.tag.createConnTab,false);
+
     setTimeout(function() {
       refreshTreeHeight();
     },10);
 
   }
+
+  var v_createChatTabFunction = function() {
+
+    var v_img =
+        '<div>' +
+        '    <img id="chat_icon" style="height: 16px; width: 16px;" src="/static/OmniDB_app/images/icons/header_chat_icon_inactive.png">' +
+        '    <span>Chat</span>' +
+        '    <span id="chat_status" class="badge">0</span>' +
+        '</div>';
+
+  	var v_tab = v_connTabControl.createTab(
+        //'<img style="width: 16px; height: 16px;" src="/static/OmniDB_app/images/icons/header_chat_icon_inactive.png"/> Chat',
+        v_img,
+        false,
+        null,
+        null,
+        null,
+        null,
+        true,
+        null
+    );
+
+  	v_connTabControl.selectTab(v_tab);
+
+  	var v_div = document.getElementById('div_' + v_tab.id);
+  	v_div.innerHTML = '';
+
+  	var v_tag = {
+  		connTabControl: v_connTabControl,
+        mode: 'chat'
+  	};
+
+    v_tab.tag = v_tag;
+  }
+
+  var v_createServerMonitoringTabFunction = function() {
+
+  	var v_tab = v_connTabControl.createTab(
+        '<img src="/static/OmniDB_app/images/monitoring.png"/> Monitoring',
+        false,
+        null,
+        null,
+        null,
+        null,
+        true,
+        function() {
+          if(this.tag != null) {
+            refreshHeights(true);
+          }
+        }
+    );
+
+  	v_connTabControl.selectTab(v_tab);
+
+  	var v_html = "<div id='" + v_tab.id + "_div_left' class='div_left' style='float:left; position: relative; width:15%; '>" +
+  	"<div onmousedown='resizeHorizontal(event)' style='width: 10px; height: 100%; cursor: ew-resize; position: absolute; top: 0px; right: 0px;'><div class='resize_line_vertical' style='width: 5px; height: 100%; border-right: 1px dotted #c3c3c3;'></div><div style='width:5px;'></div></div>" +
+  	"<div style='width: 97%;'><div id='" + v_tab.id + "_tree' style='margin-top: 10px; overflow: auto; font-family: 'Helvetica Neue', Helvetica, 'Segoe UI', Arial, freesans;'></div>" +
+  	"</div>" +
+  	"<div id='html1'>" +
+  	"</div>" +
+  	"</div>" +
+  	"<div id='" + v_tab.id + "_div_right' class='div_right' style='float:left; width:85%;'>" +
+  	"<div id='" + v_tab.id + "_tabs'>" +
+  	"<ul>" +
+  	"</ul>" +
+  	"</div>" +
+  	"</div>";
+
+  	var v_div = document.getElementById('div_' + v_tab.id);
+  	v_div.innerHTML = v_html;
+
+  	var v_height  = window.innerHeight - $('#' + v_tab.id + '_tree').offset().top - 20;
+  	document.getElementById(v_tab.id + '_tree').style.height = v_height + "px";
+
+  	var v_currTabControl = createTabControl(v_tab.id + '_tabs',0,null);
+
+  	var v_tag = {
+  		tabControl: v_currTabControl,
+      tabControlDiv: document.getElementById(v_tab.id + '_tabs'),
+  		divTree: document.getElementById(v_tab.id + '_tree'),
+  		divLeft: document.getElementById(v_tab.id + '_div_left'),
+  		divRight: document.getElementById(v_tab.id + '_div_right'),
+  		connTabControl: v_connTabControl,
+      mode: 'monitor_all'
+  	};
+
+    v_tab.tag = v_tag;
+
+    getTreeMonitor(v_tag.divTree.id);
+
+    //v_connTabControl.tag.createNewMonitorNodeTab();
+
+    setTimeout(function() {
+      refreshTreeHeight();
+    },10);
+
+  }
+
+  var v_createNewMonitorNodeTabFunction = function(p_node) {
+
+		var v_name = 'New Node';
+		if (p_node)
+			v_name = p_node;
+
+		var v_tab = v_connTabControl.selectedTab.tag.tabControl.createTab(
+            '<span id="tab_title">' + v_name + '</span><span title="Close" id="tab_close"><img src="/static/OmniDB_app/images/tab_close.png"/></span>',
+            false,
+            null,
+            null,
+            null,
+            null,
+            true,
+            function() {
+              if(this.tag != null) {
+                refreshHeights();
+              }
+            }
+        );
+		v_connTabControl.selectedTab.tag.tabControl.selectTab(v_tab);
+
+		//Adding unique names to spans
+		var v_tab_title_span = document.getElementById('tab_title');
+		v_tab_title_span.id = 'tab_title_' + v_tab.id;
+		var v_tab_close_span = document.getElementById('tab_close');
+		v_tab_close_span.id = 'tab_close_' + v_tab.id;
+		v_tab_close_span.onclick = function() {
+			closeSnippetTab(v_tab);
+		};
+
+		var v_html = "<div><h2>Connection</h2>" +
+    "<div id='conn_grid_" + v_tab.id + "' style='width: 100%; height: 50px; overflow: auto;'></div>" +
+    "<h2 style='margin-top: 10px;'>Units</h2>" +
+    "<div id='alert_grid_" + v_tab.id + "' style='width: 100%; height: 200px; overflow: auto;'></div>" +
+		"<button id='bt_save_" + v_tab.id + "' class='bt_execute' title='Save' style='margin-top: 5px; margin-bottom: 5px; margin-right: 5px; display: inline-block;' onclick='saveSnippetText();'><img src='/static/OmniDB_app/images/save.png' style='vertical-align: middle;'/></button>" +
+    "</div>";
+		var v_div = document.getElementById('div_' + v_tab.id);
+		v_div.innerHTML = v_html;
+
+    var columnProperties = [];
+
+    var col = new Object();
+    col.title =  'Technology';
+    col.type = 'dropdown';
+    col.source = ['test'];
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Server';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Port';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Database';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'User';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Title';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Actions';
+    col.renderer = 'html';
+    col.readOnly = true;
+    col.width = '60'
+    columnProperties.push(col);
+
+    var v_div_result_conn = document.getElementById('conn_grid_' + v_tab.id);
+
+    var ht_conn = new Handsontable(v_div_result_conn,
+                        {
+                          data: [['','','','','','',"<img title='Test Connection' src='/static/OmniDB_app/images/test.png' class='img_ht' onclick='pmonTestConnection()'/>"]],
+                          columns : columnProperties,
+                          colHeaders : true,
+                          manualColumnResize: true,
+                          minSpareCols :0,
+                          minSpareRows :0,
+                          fillHandle:false,
+                          cells: function (row, col, prop) {
+
+                            var cellProperties = {};
+                            cellProperties.renderer = whiteHtmlRenderer;
+
+                            return cellProperties;
+
+                          }
+                        });
+
+    var columnProperties = [];
+
+    var col = new Object();
+    col.title =  'Name';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Description';
+    col.width = '300px';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Enabled';
+    col.type = 'checkbox';
+    col.checkedTemplate = '1';
+    col.uncheckedTemplate = '0';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Interval';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Timeout';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Min Value';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Max Value';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Status';
+    col.readOnly = true;
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Acknowledge';
+    col.type = 'checkbox';
+    col.checkedTemplate = '1';
+    col.uncheckedTemplate = '0';
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Last Received Data';
+    col.readOnly = true;
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Monitor Count';
+    col.readOnly = true;
+    columnProperties.push(col);
+
+    var col = new Object();
+    col.title =  'Actions';
+    col.renderer = 'html';
+    col.readOnly = true;
+    col.width = '60px';
+    columnProperties.push(col);
+
+    var v_div_result_alert = document.getElementById('alert_grid_' + v_tab.id);
+
+    var ht_alert = new Handsontable(v_div_result_alert,
+                        {
+                          data: [['','',0,'','','','','',0,'','',''],
+                        ['','',0,'','','','','',0,'','',''],
+                      ['','',0,'','','','','',0,'','',''],
+                    ['','',0,'','','','','',0,'','','']],
+                          columns : columnProperties,
+                          colHeaders : true,
+                          manualColumnResize: true,
+                          minSpareCols :0,
+                          minSpareRows :0,
+                          fillHandle:false,
+                          cells: function (row, col, prop) {
+
+                            var cellProperties = {};
+                            if (row % 2 == 0)
+                              cellProperties.renderer = blueHtmlRenderer;
+
+                            if (col == 7)
+                              cellProperties.renderer = monitorStatusRenderer;
+
+                            if (col == 9 || col == 10 || col == 11)
+                              cellProperties.renderer = grayHtmlRenderer;
+
+                            return cellProperties;
+
+                          }
+                        });
+
+    var v_tag = {
+    	tab_id: v_tab.id,
+    	mode: 'monitor_node',
+    	tab_title_span : v_tab_title_span,
+    	tab_close_span : v_tab_close_span,
+      bt_save: document.getElementById('bt_save_' + v_tab.id),
+      conn_grid_did: v_div_result_conn,
+      conn_grid: ht_conn,
+    	tabControl: v_connTabControl.selectedTab.tag.tabControl,
+    };
+
+		v_tab.tag = v_tag;
+
+		v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createNewMonitorNodeTab);
+
+    setTimeout(function() {
+      refreshHeights();
+    },10);
+
+	};
+
+  var v_createNewMonitorUnitTabFunction = function() {
+
+
+		v_connTabControl.selectedTab.tag.tabControl.removeTabIndex(v_connTabControl.selectedTab.tag.tabControl.tabList.length-1);
+		var v_tab = v_connTabControl.selectedTab.tag.tabControl.createTab(
+            '<img src="/static/OmniDB_app/images/snippet_medium.png"/> <span id="tab_title">Monitor Unit</span><span title="Close" id="tab_close"><img src="/static/OmniDB_app/images/tab_close.png"/></span>',
+            false,
+            null,
+            null,
+            null,
+            null,
+            true,
+            function() {
+              if(this.tag != null) {
+                refreshHeights();
+              }
+              if(this.tag != null && this.tag.editor != null) {
+                  this.tag.editor.focus();
+              }
+            }
+        );
+		v_connTabControl.selectedTab.tag.tabControl.selectTab(v_tab);
+
+		//Adding unique names to spans
+		var v_tab_title_span = document.getElementById('tab_title');
+		v_tab_title_span.id = 'tab_title_' + v_tab.id;
+		var v_tab_close_span = document.getElementById('tab_close');
+		v_tab_close_span.id = 'tab_close_' + v_tab.id;
+		v_tab_close_span.onclick = function() {
+			removeTab(v_tab);
+		};
+
+		var v_html = "<div style='margin-top: 5px; margin-bottom: 5px;'>" +
+    "<span>Name: </span><input type='text' id='txt_unit_name_" + v_tab.id + "' />" +
+    "<span style='margin-left: 5px;'>Type: </span><select id='select_type_" + v_tab.id + "'><option value='chart_append'>Chart (Append)</option><option value='chart'>Chart (No Append)</option><option value='grid'>Grid</option></select>" +
+    "<span style='margin-left: 5px;'>Refresh Interval: </span><input type='text' id='txt_interval_" + v_tab.id + "' style='width: 100px;' onkeypress='return event.charCode >= 48 && event.charCode <= 57'/> seconds" +
+    "</div>" +
+    "<div style='margin-top: 5px; margin-bottom: 5px;'>" +
+    "<span>Template: </span><select id='select_template_" + v_tab.id + "' onchange='selectUnitTemplate(this.value)'><option value=-1>Select Template</option></select>" +
+    "</div>" +
+    "<div>" +
+    "<div style='width:50%; display: inline-block; box-sizing: border-box; padding-right: 5px;'><div style='margin-bottom: 5px;'>Data Script:</div><div id='txt_data_" + v_tab.id + "' style=' width: 100%; height: 250px; border: 1px solid #c3c3c3;'></div></div>" +
+    "<div style='width:50%; display: inline-block; box-sizing: border-box; padding-left: 5px;'><div style='margin-bottom: 5px;'>Chart Script:</div><div id='txt_script_" + v_tab.id + "' style=' width: 100%; height: 250px; border: 1px solid #c3c3c3;'></div></div>" +
+    "</div>" +
+		"<button class='bt_execute' title='Test' style='margin-top: 5px; margin-bottom: 5px; margin-right: 5px; display: inline-block;' onclick='testMonitorScript();'><img src='/static/OmniDB_app/images/trigger.png' style='vertical-align: middle;'/></button>" +
+    "<button class='bt_execute' title='Save' style='margin-top: 5px; margin-bottom: 5px; margin-right: 5px; display: inline-block;' onclick='saveMonitorScript();'><img src='/static/OmniDB_app/images/save.png' style='vertical-align: middle;'/></button>" +
+    "<div class='dashboard_unit_test'><div id='div_result_" + v_tab.id + "' class='unit_grid'></div></div>";
+
+		var v_div = document.getElementById('div_' + v_tab.id);
+		v_div.innerHTML = v_html;
+
+    var langTools = ace.require("ace/ext/language_tools");
+
+    var v_txt_script = document.getElementById('txt_script_' + v_tab.id);
+    var v_editor = ace.edit('txt_script_' + v_tab.id);
+    v_editor.$blockScrolling = Infinity;
+		v_editor.setTheme("ace/theme/" + v_editor_theme);
+		v_editor.session.setMode("ace/mode/python");
+		v_editor.commands.bindKey(".", "startAutocomplete");
+		v_editor.setFontSize(Number(v_editor_font_size));
+		v_editor.commands.bindKey("ctrl-space", null);
+    v_editor.commands.bindKey("Cmd-,", null)
+    v_editor.commands.bindKey("Ctrl-,", null)
+    v_editor.commands.bindKey("Cmd-Delete", null)
+    v_editor.commands.bindKey("Ctrl-Delete", null)
+    v_editor.commands.bindKey("Ctrl-Up", null)
+    v_editor.commands.bindKey("Ctrl-Down", null)
+
+    var v_txt_data = document.getElementById('txt_data_' + v_tab.id);
+    var v_editor_data = ace.edit('txt_data_' + v_tab.id);
+    v_editor.$blockScrolling = Infinity;
+		v_editor_data.setTheme("ace/theme/" + v_editor_theme);
+		v_editor_data.session.setMode("ace/mode/python");
+		v_editor_data.commands.bindKey(".", "startAutocomplete");
+		v_editor_data.setFontSize(Number(v_editor_font_size));
+		v_editor_data.commands.bindKey("ctrl-space", null);
+    v_editor_data.commands.bindKey("Cmd-,", null)
+    v_editor_data.commands.bindKey("Ctrl-,", null)
+    v_editor_data.commands.bindKey("Cmd-Delete", null)
+    v_editor_data.commands.bindKey("Ctrl-Delete", null)
+    v_editor_data.commands.bindKey("Ctrl-Up", null)
+    v_editor_data.commands.bindKey("Ctrl-Down", null)
+
+		v_txt_script.onclick = function() {
+
+			v_editor.focus();
+
+		};
+
+		var v_tag = {
+			tab_id: v_tab.id,
+			mode: 'monitor_unit',
+			editor: v_editor,
+      editor_data: v_editor_data,
+      editorDiv: v_txt_script,
+      editorDataDiv: v_txt_data,
+			editorDivId: 'txt_script_' + v_tab.id,
+			tab_title_span : v_tab_title_span,
+			tab_close_span : v_tab_close_span,
+      select_type: document.getElementById('select_type_' + v_tab.id),
+      select_template: document.getElementById('select_template_' + v_tab.id),
+      input_unit_name: document.getElementById('txt_unit_name_' + v_tab.id),
+      input_interval: document.getElementById('txt_interval_' + v_tab.id),
+      div_result: document.getElementById('div_result_' + v_tab.id),
+      bt_test: document.getElementById('bt_test_' + v_tab.id),
+			tabControl: v_connTabControl.selectedTab.tag.tabControl,
+      unit_id: null,
+      object: null,
+      tabCloseSpan: v_tab_close_span
+		};
+
+		v_tab.tag = v_tag;
+
+		v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
+
+    setTimeout(function() {
+      refreshHeights();
+    },10);
+
+	};
+
+  var v_createMonitorDashboardTabFunction = function() {
+
+		v_connTabControl.selectedTab.tag.tabControl.removeTabIndex(v_connTabControl.selectedTab.tag.tabControl.tabList.length-1);
+		var v_tab = v_connTabControl.selectedTab.tag.tabControl.createTab(
+      '<img src="/static/OmniDB_app/images/monitoring.png"/><span id="tab_title"> Monitoring</span><span title="Close" id="tab_close"><img src="/static/OmniDB_app/images/tab_close.png"/></span>',
+      false,
+      null,
+      null,
+      null,
+      null,
+      true,
+      function() {
+        if(this.tag != null) {
+          refreshHeights();
+          if (this.tag.unit_list_grid!=null) {
+            showMonitorUnitList();
+          }
+        }
+      });
+		v_connTabControl.selectedTab.tag.tabControl.selectTab(v_tab);
+
+		//Adding unique names to spans
+		var v_tab_title_span = document.getElementById('tab_title');
+		v_tab_title_span.id = 'tab_title_' + v_tab.id;
+    var v_tab_close_span = document.getElementById('tab_close');
+		v_tab_close_span.id = 'tab_close_' + v_tab.id;
+		v_tab_close_span.onclick = function() {
+			closeMonitorDashboardTab(v_tab);
+		};
+
+		var v_html = "<div>" +
+    "<button onclick='refreshMonitorDashboard(true)'>Refresh All</button>" +
+    "<span style='position: relative; margin-left: 5px;'><button onclick='showMonitorUnitList()'>Manage Units</button>" +
+    "<div id='unit_list_div_" + v_tab.id + "' class='dashboard_unit_list'><a class='modal-closer' onclick='closeMonitorUnitList()'>x</a>" +
+    "<button onclick='editMonitorUnit()'>New Unit</button>" +
+    "<div id='unit_list_grid_" + v_tab.id + "' class='unit_list_grid'></div>" +
+    "</div>" +
+    "</span>" +
+    "</div>" +
+    "<div id='dashboard_" + v_tab.id + "' class='dashboard_all'>" +
+    "</div>";
+
+    var v_div = document.getElementById('div_' + v_tab.id);
+		v_div.innerHTML = v_html;
+
+    var v_txt_snippet = document.getElementById('txt_snippet_' + v_tab.id);
+
+		var v_tag = {
+			tab_id: v_tab.id,
+			mode: 'monitor_dashboard',
+			dashboard_div: document.getElementById('dashboard_' + v_tab.id),
+      unit_list_div: document.getElementById('unit_list_div_' + v_tab.id),
+      unit_list_grid_div: document.getElementById('unit_list_grid_' + v_tab.id),
+      unit_list_grid: null,
+      unit_list_id_list: [],
+			tab_title_span : v_tab_title_span,
+			tabControl: v_connTabControl.selectedTab.tag.tabControl,
+      units: [],
+      unit_sequence: 0,
+      tab_active: true,
+      connTabTag: v_connTabControl.selectedTab.tag,
+      tabCloseSpan: v_tab_close_span
+		};
+
+		v_tab.tag = v_tag;
+
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
+    v_add_tab.tag = {
+      mode: 'add'
+    }
+
+    setTimeout(function() {
+      refreshHeights();
+    },10);
+
+	};
 
   var v_createSnippetTextTabFunction = function(p_snippet) {
 
@@ -241,6 +889,7 @@ function initCreateTabFunctions() {
 
 		var langTools = ace.require("ace/ext/language_tools");
 		var v_editor = ace.edit('txt_snippet_' + v_tab.id);
+    v_editor.$blockScrolling = Infinity;
 		v_editor.setTheme("ace/theme/" + v_editor_theme);
 		v_editor.session.setMode("ace/mode/sql");
 		v_editor.commands.bindKey(".", "startAutocomplete");
@@ -254,6 +903,8 @@ function initCreateTabFunctions() {
     v_editor.commands.bindKey("Ctrl-,", null)
     v_editor.commands.bindKey("Cmd-Delete", null)
     v_editor.commands.bindKey("Ctrl-Delete", null)
+    v_editor.commands.bindKey("Ctrl-Up", null)
+    v_editor.commands.bindKey("Ctrl-Down", null)
 
 		v_txt_snippet.onclick = function() {
 
@@ -276,7 +927,8 @@ function initCreateTabFunctions() {
       bt_save: document.getElementById('bt_save_' + v_tab.id),
 			tabControl: v_connTabControl.selectedTab.tag.tabControl,
 			snippetTab: v_connTabControl.selectedTab,
-      snippetObject: null
+      snippetObject: null,
+      tabCloseSpan: v_tab_close_span
 		};
 
 		v_tab.tag = v_tag;
@@ -328,12 +980,13 @@ function initCreateTabFunctions() {
 			tab_title_span : v_tab_title_span,
 			tab_close_span : v_tab_close_span,
 			tabControl: v_connTabControl.selectedTab.tag.tabControl,
-      network: null
+      network: null,
+      tabCloseSpan: v_tab_close_span
 		};
 
 		v_tab.tag = v_tag;
 
-		var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+		var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
     v_add_tab.tag = {
       mode: 'add'
     }
@@ -377,11 +1030,12 @@ function initCreateTabFunctions() {
 			iframe: document.getElementById('website_' + v_tab.id),
 			tab_title_span : v_tab_title_span,
 			tabControl: v_connTabControl.selectedTab.tag.tabControl,
+      tabCloseSpan: v_tab.elementClose
 		};
 
 		v_tab.tag = v_tag;
 
-    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
     v_add_tab.tag = {
       mode: 'add'
     }
@@ -425,11 +1079,12 @@ function initCreateTabFunctions() {
 			iframe: document.getElementById('website_' + v_tab.id),
 			tab_title_span : v_tab_title_span,
 			tabControl: v_connTabControl,
+      tabCloseSpan: v_tab.elementClose
 		};
 
 		v_tab.tag = v_tag;
 
-		v_connTabControl.createTab('+',false,v_createConnTabFunction);
+    v_connTabControl.createTab('+',false,function() { v_createConnTabFunction(); });
 
     setTimeout(function() {
       refreshHeights();
@@ -475,7 +1130,7 @@ function initCreateTabFunctions() {
 
 		var v_tag = {
 			tab_id: v_tab.id,
-			mode: 'monitoring',
+			mode: 'monitor_grid',
 			tab_title_span : v_tab_title_span,
       tab_close_span : v_tab_close_span,
       query_info: document.getElementById('div_query_info_' + v_tab.id),
@@ -484,7 +1139,8 @@ function initCreateTabFunctions() {
 			tabControl: v_connTabControl.selectedTab.tag.tabControl,
       ht: null,
       query: p_query,
-      actions: p_actions
+      actions: p_actions,
+      tabCloseSpan: v_tab_close_span
 		};
 
     //Adding action to button
@@ -494,7 +1150,7 @@ function initCreateTabFunctions() {
 
 		v_tab.tag = v_tag;
 
-    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
     v_add_tab.tag = {
       mode: 'add'
     }
@@ -558,12 +1214,13 @@ function initCreateTabFunctions() {
 			tabControl: v_connTabControl.selectedTab.tag.tabControl,
       ht: null,
       current_page: 1,
-      pages: null
+      pages: null,
+      tabCloseSpan: v_tab_close_span
 		};
 
 		v_tab.tag = v_tag;
 
-    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
     v_add_tab.tag = {
       mode: 'add'
     }
@@ -623,19 +1280,19 @@ function initCreateTabFunctions() {
 					"<button id='bt_start_" + v_tab.id + "' class='bt_execute' title='Run' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle;' onclick='querySQL(0);'><img src='/static/OmniDB_app/images/play.png' style='vertical-align: middle;'/></button>" +
           "<button id='bt_indent_" + v_tab.id + "' class='bt_execute' title='Indent SQL' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle;' onclick='indentSQL();'><img src='/static/OmniDB_app/images/indent.png' style='vertical-align: middle;'/></button>" +
 					"<select id='sel_filtered_data_" + v_tab.id + "' style='display: none;'><option value='0' >Script</option><option selected='selected' value='1' >Query</option></select>" +
-          "<button onclick='getExplain(0)' title='Explain' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle;'><img src='/static/OmniDB_app/images/explain.png' style='vertical-align: middle;'/></button>" +
-          "<button onclick='getExplain(1)' title='Explain Analyze' style='margin-bottom: 5px; display: inline-block; vertical-align: middle;'><img src='/static/OmniDB_app/images/analyze.png' style='vertical-align: middle;'/></button>" +
+          "<button id='bt_explain_" + v_tab.id + "' class='dbms_object postgresql_object' onclick='getExplain(0)' title='Explain' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle; display: none;'><img src='/static/OmniDB_app/images/explain.png' style='vertical-align: middle;'/></button>" +
+          "<button id='bt_analyze_" + v_tab.id + "' class='dbms_object postgresql_object' onclick='getExplain(1)' title='Explain Analyze' style='margin-bottom: 5px; display: inline-block; vertical-align: middle; display: none;'><img src='/static/OmniDB_app/images/analyze.png' style='vertical-align: middle;'/></button>" +
           "<button id='bt_fetch_more_" + v_tab.id + "' class='bt_execute' title='Run' style='margin-bottom: 5px; margin-left: 5px; display: none; vertical-align: middle;' onclick='querySQL(1);'>Fetch more</button>" +
           "<button id='bt_fetch_all_" + v_tab.id + "' class='bt_execute' title='Run' style='margin-bottom: 5px; margin-left: 5px; display: none; vertical-align: middle;' onclick='querySQL(2);'>Fetch all</button>" +
-          "<button id='bt_cancel_" + v_tab.id + "' class='bt_red' title='Cancel' style='margin-bottom: 5px; margin-left: 5px; display: none; vertical-align: middle;' onclick='cancelSQL();'>Cancel</button>" +
+          "<button id='bt_cancel_" + v_tab.id + "' class='bt_red' title='Cancel' style='margin-left: 5px; display: none; vertical-align: middle;' onclick='cancelSQL();'>Cancel</button>" +
 					"<div id='div_query_info_" + v_tab.id + "' class='query_info' style='display: inline-block; margin-left: 5px; vertical-align: middle;'></div>" +
-					"<button class='bt_export' title='Export Data' style='display: none; margin-bottom: 5px; margin-left: 5px; float: right;' onclick='exportData();'><img src='/static/OmniDB_app/images/table_export.png' style='vertical-align: middle;'/></button>" +
-					"<select id='sel_export_type_" + v_tab.id + "' style='display: none; float: right;'><option selected='selected' value='csv' >CSV</option><option value='xlsx' >XLSX</option><option value='DBF' >DBF</option></select>" +
+					"<button class='bt_export' title='Export Data' style='margin-bottom: 5px; margin-left: 5px; float: right;' onclick='exportData();'><img src='/static/OmniDB_app/images/table_export.png' style='vertical-align: middle;'/></button>" +
+					"<select id='sel_export_type_" + v_tab.id + "' style='float: right;'><option selected='selected' value='csv' >CSV</option><option value='xlsx' >XLSX</option></select>" +
           "        <div id='query_result_tabs_" + v_tab.id + "'>" +
           "            <ul>" +
           "            <li id='query_result_tabs_" + v_tab.id + "_tab1'>Data</li>" +
-          "            <li id='query_result_tabs_" + v_tab.id + "_tab2'>Messages <div id='query_result_tabs_count_notices_" + v_tab.id + "' class='count_notices' style='display: none;'></div></li>" +
-          "            <li id='query_result_tabs_" + v_tab.id + "_tab3'>Explain</li>" +
+          "            <li id='query_result_tabs_" + v_tab.id + "_tab2' class='dbms_object postgresql_object' style='display: none;'>Messages <div id='query_result_tabs_count_notices_" + v_tab.id + "' class='count_notices' style='display: none;'></div></li>" +
+          "            <li id='query_result_tabs_" + v_tab.id + "_tab3' class='dbms_object postgresql_object' style='display: none;'>Explain</li>" +
           "			</ul>" +
           "			<div id='div_query_result_tabs_" + v_tab.id + "_tab1'>" +
           "<div id='div_result_" + v_tab.id + "' class='query_result' style='width: 100%; overflow: auto;'></div>" +
@@ -654,19 +1311,24 @@ function initCreateTabFunctions() {
 
 		var langTools = ace.require("ace/ext/language_tools");
 		var v_editor = ace.edit('txt_query_' + v_tab.id);
+    v_editor.$blockScrolling = Infinity;
 		v_editor.setTheme("ace/theme/" + v_editor_theme);
 		v_editor.session.setMode("ace/mode/sql");
-		v_editor.commands.bindKey(".", "startAutocomplete");
+		v_editor.commands.bindKey(v_keybind_object.v_autocomplete, "startAutocomplete");
+    v_editor.commands.bindKey(v_keybind_object.v_autocomplete_mac, "startAutocomplete");
+
 
 		v_editor.setFontSize(Number(v_editor_font_size));
 
-		v_editor.commands.bindKey("ctrl-space", null);
+		//v_editor.commands.bindKey("ctrl-space", null);
 
     //Remove shortcuts from ace in order to avoid conflict with omnidb shortcuts
     v_editor.commands.bindKey("Cmd-,", null)
     v_editor.commands.bindKey("Ctrl-,", null)
     v_editor.commands.bindKey("Cmd-Delete", null)
     v_editor.commands.bindKey("Ctrl-Delete", null)
+    v_editor.commands.bindKey("Ctrl-Up", null)
+    v_editor.commands.bindKey("Ctrl-Down", null)
 
 		document.getElementById('txt_query_' + v_tab.id).onclick = function() {
 
@@ -674,44 +1336,14 @@ function initCreateTabFunctions() {
 
 		};
 
-		var command = {
-			name: "save",
-			bindKey: {
-			      mac: v_keybind_object.v_execute_mac,
-			      win: v_keybind_object.v_execute
-			    },
-			exec: function(){
-			querySQL(0);
-			}
-		}
-
-		v_editor.commands.addCommand(command);
-
-		var command = {
-			name: "replace",
-			bindKey: {
-			      mac: v_keybind_object.v_replace_mac,
-			      win: v_keybind_object.v_replace
-			    },
-			exec: function(){
-				v_copyPasteObject.v_tabControl.selectTabIndex(0);
-				showFindReplace(v_editor);
-			}
-		}
-
-		v_editor.commands.addCommand(command);
-
 		var qtags = {
 			getCompletions: function(editor, session, pos, prefix, callback) {
 
-        if (v_completer_ready) {
+        if (v_completer_ready && prefix!='') {
 
             var wordlist = [];
 
             v_completer_ready = false;
-            setTimeout(function(){ v_completer_ready = true; }, 1000);
-
-            if (prefix!='') {
 
             addLoadingCursor();
 
@@ -720,15 +1352,15 @@ function initCreateTabFunctions() {
                 function(p_return) {
 
                   removeLoadingCursor();
-
-                  if (p_return.v_data.length==0)
-                    editor.insert('.');
+                  v_completer_ready = true;
 
                   wordlist = p_return.v_data;
                   callback(null, wordlist);
 
                 },
                 function(p_return) {
+                  removeLoadingCursor();
+                  v_completer_ready = true;
                   if (p_return.v_data.password_timeout) {
                     showPasswordPrompt(
                       v_connTabControl.selectedTab.tag.selectedDatabaseIndex,
@@ -741,16 +1373,12 @@ function initCreateTabFunctions() {
           						p_return.v_data.message
                     );
                   }
-                  else {
-                    removeLoadingCursor();
-                    editor.insert('.');
-                  }
                 },
                 'box',
                 false);
-          }
-          else
-            editor.insert('.');
+        }
+        else {
+          callback(null, wordlist);
         }
       }
 		}
@@ -783,8 +1411,11 @@ function initCreateTabFunctions() {
       bt_fetch_more: document.getElementById('bt_fetch_more_' + v_tab.id),
       bt_fetch_all: document.getElementById('bt_fetch_all_' + v_tab.id),
       bt_start: document.getElementById('bt_start_' + v_tab.id),
-      bt_save: document.getElementById('bt_save_' + v_tab.id),
+      bt_indent: document.getElementById('bt_indent_' + v_tab.id),
+      bt_explain: document.getElementById('bt_explain_' + v_tab.id),
+      bt_analyze: document.getElementById('bt_analyze_' + v_tab.id),
       bt_cancel: document.getElementById('bt_cancel_' + v_tab.id),
+      bt_export: document.getElementById('bt_export_' + v_tab.id),
 			state : 0,
       context: null,
 			tabControl: v_connTabControl.selectedTab.tag.tabControl,
@@ -792,7 +1423,8 @@ function initCreateTabFunctions() {
       currQueryTab: null,
 			connTab: v_connTabControl.selectedTab,
       currDatabaseIndex: null,
-      tab_db_id: v_tab_db_id
+      tab_db_id: v_tab_db_id,
+      tabCloseSpan: v_tab_close_span
 		};
 
 		v_tab.tag = v_tag;
@@ -827,7 +1459,223 @@ function initCreateTabFunctions() {
 
 		v_selectDataTabFunc();
 
-    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
+    v_add_tab.tag = {
+      mode: 'add'
+    }
+
+    setTimeout(function() {
+      refreshHeights();
+    },10);
+
+    adjustQueryTabObjects(false);
+    v_editor.focus();
+
+	};
+
+  var v_createConsoleTabFunction = function() {
+
+		v_connTabControl.selectedTab.tag.tabControl.removeTabIndex(v_connTabControl.selectedTab.tag.tabControl.tabList.length-1);
+		var v_tab = v_connTabControl.selectedTab.tag.tabControl.createTab(
+            '<img src="/static/OmniDB_app/images/console.png"/><span> Console</span><span id="tab_stub"><img style="width: 16px;"/></span><span id="tab_loading" style="display:none;"><img src="/static/OmniDB_app/images/spin.svg"/></span><span id="tab_check" style="display:none;"><img src="/static/OmniDB_app/images/check.png"/></span><span title="Close" id="tab_close"><img src="/static/OmniDB_app/images/tab_close.png"/></span>',
+            false,
+            null,
+            null,
+            null,
+            null,
+            true,
+            function() {
+              if(this.tag != null) {
+                refreshHeights();
+              }
+              if(this.tag != null && this.tag.editor_input != null) {
+                  this.tag.editor_input.focus();
+                  checkConsoleStatus(this);
+              }
+            }
+        );
+		v_connTabControl.selectedTab.tag.tabControl.selectTab(v_tab);
+
+		//Adding unique names to spans
+		var v_tab_loading_span = document.getElementById('tab_loading');
+		v_tab_loading_span.id = 'tab_loading_' + v_tab.id;
+		var v_tab_close_span = document.getElementById('tab_close');
+		v_tab_close_span.id = 'tab_close_' + v_tab.id;
+		v_tab_close_span.onclick = function() {
+			removeTab(v_tab);
+		};
+    var v_tab_check_span = document.getElementById('tab_check');
+		v_tab_check_span.id = 'tab_check_' + v_tab.id;
+    var v_tab_stub_span = document.getElementById('tab_stub');
+		v_tab_stub_span.id = 'tab_stub_' + v_tab.id;
+
+		var v_html = "<div id='txt_console_" + v_tab.id + "' style=' width: 100%; height: 120px; border: 1px solid #c3c3c3;'></div>" +
+					"<div onmousedown='resizeVertical(event)' style='width: 100%; height: 10px; cursor: ns-resize;'><div class='resize_line_horizontal' style='height: 5px; border-bottom: 1px dotted #c3c3c3;'></div><div style='height:5px;'></div></div>" +
+          "<div id='console_history_div_" + v_tab.id + "' class='console_command_history'><a class='modal-closer' onclick='closeConsoleHistory()'>x</a>" +
+          "<div id='console_history_grid_" + v_tab.id + "' class='console_command_history_grid'></div>" +
+          "</div>" +
+          "</span>" +
+          "</div>" +
+          "<button id='bt_start_" + v_tab.id + "' class='bt_execute' title='Run' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle;' onclick='consoleSQL(false);'><img src='/static/OmniDB_app/images/play.png' style='vertical-align: middle;'/></button>" +
+          "<button id='bt_indent_" + v_tab.id + "' class='bt_execute' title='Indent SQL' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle;' onclick='indentSQL();'><img src='/static/OmniDB_app/images/indent.png' style='vertical-align: middle;'/></button>" +
+          "<button id='bt_clear_" + v_tab.id + "' class='bt_execute' title='Clear Console' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle;' onclick='clearConsole();'><img src='/static/OmniDB_app/images/vacuum.png' style='vertical-align: middle;'/></button>" +
+          "<button id='bt_clear_" + v_tab.id + "' class='bt_execute' title='Command History' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle;' onclick='showConsoleHistory();'><img src='/static/OmniDB_app/images/command_list.png' style='vertical-align: middle;'/></button>" +
+          "<button id='bt_cancel_" + v_tab.id + "' class='bt_red' title='Cancel' style='margin-left: 5px; display: none; vertical-align: middle;' onclick='cancelConsole();'>Cancel</button>" +
+					"<div id='div_query_info_" + v_tab.id + "' class='query_info' style='display: inline-block; margin-left: 5px; vertical-align: middle;'></div>" +
+          "<div id='txt_input_" + v_tab.id + "' style=' width: 100%; height: 150px; border: 1px solid #c3c3c3;'></div>";
+
+		var v_div = document.getElementById('div_' + v_tab.id);
+		v_div.innerHTML = v_html;
+
+		var langTools = ace.require("ace/ext/language_tools");
+		var v_editor1 = ace.edit('txt_input_' + v_tab.id);
+    v_editor1.$blockScrolling = Infinity;
+		v_editor1.setTheme("ace/theme/" + v_editor_theme);
+		v_editor1.session.setMode("ace/mode/sql");
+		v_editor1.commands.bindKey(v_keybind_object.v_autocomplete, "startAutocomplete");
+    v_editor1.commands.bindKey(v_keybind_object.v_autocomplete_mac, "startAutocomplete");
+
+		v_editor1.setFontSize(Number(v_editor_font_size));
+
+		//v_editor.commands.bindKey("ctrl-space", null);
+
+    //Remove shortcuts from ace in order to avoid conflict with omnidb shortcuts
+    v_editor1.commands.bindKey("Cmd-,", null)
+    v_editor1.commands.bindKey("Ctrl-,", null)
+    v_editor1.commands.bindKey("Cmd-Delete", null)
+    v_editor1.commands.bindKey("Ctrl-Delete", null)
+    v_editor1.commands.bindKey("Ctrl-Up", null)
+    v_editor1.commands.bindKey("Ctrl-Down", null)
+
+		document.getElementById('txt_input_' + v_tab.id).onclick = function() {
+
+			v_editor1.focus();
+
+		};
+
+		var qtags = {
+			getCompletions: function(editor, session, pos, prefix, callback) {
+
+        if (v_completer_ready && prefix!='') {
+
+            var wordlist = [];
+
+            v_completer_ready = false;
+
+            addLoadingCursor();
+
+            execAjax('/get_completions/',
+                JSON.stringify({"p_database_index": v_connTabControl.selectedTab.tag.selectedDatabaseIndex, p_prefix: prefix, p_sql: editor.getValue(), p_prefix_pos: editor.session.doc.positionToIndex(editor.selection.getCursor())}),
+                function(p_return) {
+
+                  removeLoadingCursor();
+                  v_completer_ready = true;
+
+                  wordlist = p_return.v_data;
+                  callback(null, wordlist);
+
+                },
+                function(p_return) {
+                  removeLoadingCursor();
+                  v_completer_ready = true;
+                  if (p_return.v_data.password_timeout) {
+                    showPasswordPrompt(
+                      v_connTabControl.selectedTab.tag.selectedDatabaseIndex,
+                      function() {
+                        v_editor1.focus();
+                      },
+                      function() {
+                        v_editor1.focus();
+                      },
+          						p_return.v_data.message
+                    );
+                  }
+                },
+                'box',
+                false);
+        }
+        else {
+          callback(null, wordlist);
+        }
+      }
+		}
+
+		langTools.setCompleters([qtags]);
+		v_editor1.setOptions({enableBasicAutocompletion: true});
+    v_editor1.focus();
+
+    var v_editor2 = ace.edit('txt_console_' + v_tab.id);
+    v_editor2.renderer.setOption('showLineNumbers', false);
+    v_editor2.setOptions({
+      fontFamily: '"Courier New", Courier, monospace'
+    });
+    v_editor2.$blockScrolling = Infinity;
+		v_editor2.setTheme("ace/theme/" + v_editor_theme);
+		v_editor2.session.setMode("ace/mode/sql");
+		v_editor2.commands.bindKey(v_keybind_object.v_autocomplete, "startAutocomplete");
+    v_editor2.commands.bindKey(v_keybind_object.v_autocomplete_mac, "startAutocomplete");
+
+		v_editor2.setFontSize(Number(v_editor_font_size));
+
+		//v_editor.commands.bindKey("ctrl-space", null);
+
+    //Remove shortcuts from ace in order to avoid conflict with omnidb shortcuts
+    v_editor2.commands.bindKey("Cmd-,", null)
+    v_editor2.commands.bindKey("Ctrl-,", null)
+    v_editor2.commands.bindKey("Cmd-Delete", null)
+    v_editor2.commands.bindKey("Ctrl-Delete", null)
+    v_editor2.commands.bindKey("Ctrl-Up", null)
+    v_editor2.commands.bindKey("Ctrl-Down", null)
+
+
+
+		document.getElementById('txt_console_' + v_tab.id).onclick = function() {
+
+			v_editor2.focus();
+
+		};
+
+		v_editor2.setOptions({enableBasicAutocompletion: true});
+    v_editor2.setValue('>> ' + v_connTabControl.selectedTab.tag.consoleHelp)
+    v_editor2.setReadOnly(true);
+    v_editor2.clearSelection();
+
+    v_editor1.commands.bindKey("Enter",
+    function() {
+      v_editor1.session.insert(v_editor1.getCursorPosition(),'\n');
+      consoleSQL();
+    });
+
+		var v_tag = {
+			tab_id: v_tab.id,
+			mode: 'console',
+			editor_input: v_editor1,
+      editor_console: v_editor2,
+      editorDivId: 'txt_console_' + v_tab.id,
+			div_console: document.getElementById('txt_console_' + v_tab.id),
+      div_result: document.getElementById('txt_input_' + v_tab.id),
+      query_info: document.getElementById('div_query_info_' + v_tab.id),
+      bt_indent: document.getElementById('bt_indent_' + v_tab.id),
+      bt_cancel: document.getElementById('bt_cancel_' + v_tab.id),
+			tab_loading_span : v_tab_loading_span,
+			tab_close_span : v_tab_close_span,
+			tab_check_span : v_tab_check_span,
+      tab_stub_span : v_tab_stub_span,
+      context: null,
+			tabControl: v_connTabControl.selectedTab.tag.tabControl,
+			connTab: v_connTabControl.selectedTab,
+      currDatabaseIndex: null,
+      tabCloseSpan: v_tab_close_span,
+      state: 0,
+      console_history_div: document.getElementById('console_history_div_' + v_tab.id),
+      console_history_grid_div: document.getElementById('console_history_grid_' + v_tab.id),
+      console_history_grid: null,
+      console_history_cmd_index: -1
+		};
+
+		v_tab.tag = v_tag;
+
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
     v_add_tab.tag = {
       mode: 'add'
     }
@@ -896,19 +1744,21 @@ function initCreateTabFunctions() {
 
     var langTools = ace.require("ace/ext/language_tools");
     var v_editor = ace.edit('txt_filter_data_' + v_tab.id);
+    v_editor.$blockScrolling = Infinity;
     v_editor.setTheme("ace/theme/" + v_editor_theme);
     v_editor.session.setMode("ace/mode/sql");
-    v_editor.commands.bindKey(".", "startAutocomplete");
+    v_editor.commands.bindKey(v_keybind_object.v_autocomplete, "startAutocomplete");
+    v_editor.commands.bindKey(v_keybind_object.v_autocomplete_mac, "startAutocomplete");
 
     v_editor.setFontSize(Number(v_editor_font_size));
-
-    v_editor.commands.bindKey("ctrl-space", null);
 
     //Remove shortcuts from ace in order to avoid conflict with omnidb shortcuts
     v_editor.commands.bindKey("Cmd-,", null)
     v_editor.commands.bindKey("Ctrl-,", null)
     v_editor.commands.bindKey("Cmd-Delete", null)
     v_editor.commands.bindKey("Ctrl-Delete", null)
+    v_editor.commands.bindKey("Ctrl-Up", null)
+    v_editor.commands.bindKey("Ctrl-Down", null)
 
     document.getElementById('txt_filter_data_' + v_tab.id).onclick = function() {
 
@@ -917,44 +1767,17 @@ function initCreateTabFunctions() {
     };
 
 
-    var command = {
-      name: "save",
-      bindKey: {
-            mac: v_keybind_object.v_execute_mac,
-            win: v_keybind_object.v_execute
-          },
-      exec: function(){
-      queryEditData();
-      }
-    }
-
-    v_editor.commands.addCommand(command);
-
-    var command = {
-      name: "replace",
-      bindKey: {
-            mac: v_keybind_object.v_replace_mac,
-            win: v_keybind_object.v_replace
-          },
-      exec: function(){
-        v_copyPasteObject.v_tabControl.selectTabIndex(0);
-        showFindReplace(v_editor);
-      }
-    }
-
-    v_editor.commands.addCommand(command);
 
     var qtags = {
       getCompletions: function(editor, session, pos, prefix, callback) {
 
-        if (v_completer_ready) {
+        if (v_completer_ready && prefix!='') {
 
             var wordlist = [];
 
             v_completer_ready = false;
-            setTimeout(function(){ v_completer_ready = true; }, 1000);
 
-            if (prefix!='') {
+            addLoadingCursor();
 
             execAjax('/get_completions_table/',
                 JSON.stringify({"p_database_index": v_connTabControl.selectedTab.tag.selectedDatabaseIndex,
@@ -962,14 +1785,16 @@ function initCreateTabFunctions() {
                                 "p_schema": v_connTabControl.selectedTab.tag.tabControl.selectedTab.tag.editDataObject.schema}),
                 function(p_return) {
 
-                  if (p_return.v_data.length==0)
-                    editor.insert('.');
+                  removeLoadingCursor();
+                  v_completer_ready = true;
 
                   wordlist = p_return.v_data;
                   callback(null, wordlist);
 
                 },
                 function(p_return) {
+                  removeLoadingCursor();
+                  v_completer_ready = true;
                   if (p_return.v_data.password_timeout) {
                     showPasswordPrompt(
                       v_connTabControl.selectedTab.tag.selectedDatabaseIndex,
@@ -979,17 +1804,16 @@ function initCreateTabFunctions() {
                       function() {
                         v_editor.focus();
                       },
-          						p_return.v_data.message
+                      p_return.v_data.message
                     );
                   }
                 },
                 'box',
                 false);
-
-          }
-
         }
-
+        else {
+          callback(null, wordlist);
+        }
       }
     }
 
@@ -1017,12 +1841,13 @@ function initCreateTabFunctions() {
       context: null,
       tabControl: v_connTabControl.selectedTab.tag.tabControl,
       connTab: v_connTabControl.selectedTab,
-      tabId: v_connTabControl.selectedTab.tag.tabControl.tabCounter
+      tabId: v_connTabControl.selectedTab.tag.tabControl.tabCounter,
+      tabCloseSpan: v_tab_close_span
     };
 
     v_tab.tag = v_tag;
 
-    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
     v_add_tab.tag = {
       mode: 'add'
     }
@@ -1106,7 +1931,8 @@ function initCreateTabFunctions() {
 			htDivIndexes: document.getElementById('div_alter_index_data_' + v_tab.id),
 			tab_title_span : v_tab_title_span,
 			tabControl: v_curr_tabs,
-			alterTableObject: { mode: null }
+			alterTableObject: { mode: null },
+      tabCloseSpan: v_tab_close_span
 		};
 
 		v_curr_tabs.tabList[0].elementLi.onclick = function() {
@@ -1139,7 +1965,7 @@ function initCreateTabFunctions() {
 
 		v_tab.tag = v_tag;
 
-    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
     v_add_tab.tag = {
       mode: 'add'
     }
@@ -1201,7 +2027,7 @@ function initCreateTabFunctions() {
           "<button id='bt_start_" + v_tab.id + "' class='bt_execute' title='Start' style='margin-bottom: 5px; margin-right: 5px; display: inline-block; vertical-align: middle;' onclick='startDebug();'><img src='/static/OmniDB_app/images/trigger.png' style='vertical-align: middle;'/></button>" +
 					"<button id='bt_step_over_" + v_tab.id + "' class='bt_execute' title='Step Over (Next Statement)' style='margin-bottom: 5px; margin-right: 5px; display: none; vertical-align: middle;' onclick='stepDebug(0);'><img src='/static/OmniDB_app/images/step_over.png' style='vertical-align: middle;'/></button>" +
           "<button id='bt_step_out_" + v_tab.id + "' class='bt_execute' title='Resume (Next Breakpoint)' style='margin-bottom: 5px; margin-right: 5px; display: none; vertical-align: middle;' onclick='stepDebug(1);'><img src='/static/OmniDB_app/images/play.png' style='vertical-align: middle;'/></button>" +
-          "<button id='bt_cancel_" + v_tab.id + "' class='bt_red' title='Cancel' style='margin-bottom: 5px; margin-right: 5px; display: none; vertical-align: middle;' onclick='cancelDebug();'>Cancel</button>" +
+          "<button id='bt_cancel_" + v_tab.id + "' class='bt_red' title='Cancel' style='margin-right: 5px; display: none; vertical-align: middle;' onclick='cancelDebug();'>Cancel</button>" +
 					"<div id='div_debug_info_" + v_tab.id + "' class='query_info' style='display: inline-block; margin-left: 5px; vertical-align: middle;'></div>" +
           "        <div id='debug_result_tabs_" + v_tab.id + "'>" +
           "            <ul>" +
@@ -1234,6 +2060,7 @@ function initCreateTabFunctions() {
 
 		var langTools = ace.require("ace/ext/language_tools");
 		var v_editor = ace.edit('txt_func_body_' + v_tab.id);
+    v_editor.$blockScrolling = Infinity;
 		v_editor.setTheme("ace/theme/" + v_editor_theme);
 		v_editor.session.setMode("ace/mode/sql");
 		v_editor.commands.bindKey(".", "startAutocomplete");
@@ -1247,6 +2074,8 @@ function initCreateTabFunctions() {
     v_editor.commands.bindKey("Ctrl-,", null)
     v_editor.commands.bindKey("Cmd-Delete", null)
     v_editor.commands.bindKey("Ctrl-Delete", null)
+    v_editor.commands.bindKey("Ctrl-Up", null)
+    v_editor.commands.bindKey("Ctrl-Down", null)
     v_editor.setReadOnly(true);
 
 		document.getElementById('txt_func_body_' + v_tab.id).onclick = function() {
@@ -1290,7 +2119,8 @@ function initCreateTabFunctions() {
       htVariable: null,
       htResult: null,
       chart: null,
-      breakPoint: null
+      breakPoint: null,
+      tabCloseSpan: v_tab_close_span
 		};
 
 		v_tab.tag = v_tag;
@@ -1341,7 +2171,7 @@ function initCreateTabFunctions() {
 
 		v_selectParameterTabFunc();
 
-    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,v_connTabControl.tag.createQueryTab);
+    var v_add_tab = v_connTabControl.selectedTab.tag.tabControl.createTab('+',false,function(e) {showMenuNewTab(e); },null,null,null,null,null,false);
     v_add_tab.tag = {
       mode: 'add'
     }
@@ -1355,6 +2185,8 @@ function initCreateTabFunctions() {
   //Functions to create tabs globally
   v_connTabControl.tag.createConnTab = v_createConnTabFunction;
   v_connTabControl.tag.createSnippetTab = v_createSnippetTabFunction;
+  v_connTabControl.tag.createChatTab = v_createChatTabFunction;
+  v_connTabControl.tag.createServerMonitoringTab = v_createServerMonitoringTabFunction;
 
   //Functions to create tabs inside snippet tab
   v_connTabControl.tag.createSnippetTextTab = v_createSnippetTextTabFunction;
@@ -1369,4 +2201,10 @@ function initCreateTabFunctions() {
   v_connTabControl.tag.createMonitoringTab = v_createMonitoringTabFunction;
   v_connTabControl.tag.createDebuggerTab = v_createDebuggerTabFunction;
   v_connTabControl.tag.createQueryHistoryTab = v_createQueryHistoryTabFunction;
+  v_connTabControl.tag.createNewMonitorUnitTab = v_createNewMonitorUnitTabFunction;
+  v_connTabControl.tag.createMonitorDashboardTab = v_createMonitorDashboardTabFunction;
+  v_connTabControl.tag.createConsoleTab = v_createConsoleTabFunction;
+
+  //Functions to create tabs inside monitor tab
+  v_connTabControl.tag.createNewMonitorNodeTab = v_createNewMonitorNodeTabFunction;
 }

@@ -77,6 +77,20 @@ function goToConnections() {
 }
 
 /// <summary>
+/// Go to connections.
+/// </summary>
+function confirmSignout() {
+
+	showConfirm('Are you sure you want to sign out?',
+		function() {
+
+			window.open("../logout","_self");
+
+		});
+
+}
+
+/// <summary>
 /// Go to workspace.
 /// </summary>
 function goToWorkspace() {
@@ -141,6 +155,29 @@ function saveConfigUser() {
 }
 
 /// <summary>
+/// Saves shortcuts to OmniDB database.
+/// </summary>
+function saveShortcuts() {
+
+	var v_shortcut_list = [];
+
+	for (var property in v_shortcut_object.shortcuts) {
+    if (v_shortcut_object.shortcuts.hasOwnProperty(property)) {
+        v_shortcut_list.push(v_shortcut_object.shortcuts[property]);
+    }
+  }
+
+	var input = JSON.stringify({"p_shortcuts": v_shortcut_list});
+
+	execAjax('/save_shortcuts/',
+			input,
+			function(p_return) {
+				showAlert('Shortcuts saved.');
+
+			});
+}
+
+/// <summary>
 /// Displays edit cell window.
 /// </summary>
 /// <param name="p_ht">Handsontable object.</param>
@@ -162,6 +199,7 @@ function editCellData(p_ht, p_row, p_col, p_content, p_can_alter) {
 	var v_editor = ace.edit('txt_edit_content');
 	v_editor.setTheme("ace/theme/" + v_editor_theme);
 	v_editor.session.setMode("ace/mode/text");
+	v_editor.$blockScrolling = Infinity;
 
 	v_editor.setFontSize(Number(v_editor_font_size));
 
@@ -171,22 +209,8 @@ function editCellData(p_ht, p_row, p_col, p_content, p_can_alter) {
   		v_editor.focus();
     };
 
-    var command = {
-		name: "replace",
-		bindKey: {
-		      mac: v_keybind_object.v_replace_mac,
-		      win: v_keybind_object.v_replace
-		    },
-		exec: function(){
-			v_copyPasteObject.v_tabControl.selectTabIndex(0);
-			showFindReplace(v_editor);
-		}
-	}
-
-	v_editor.commands.addCommand(command);
-
 	if (p_content!=null)
-		v_editor.setValue(p_content);
+		v_editor.setValue(String(p_content));
 	else
 		v_editor.setValue('');
 

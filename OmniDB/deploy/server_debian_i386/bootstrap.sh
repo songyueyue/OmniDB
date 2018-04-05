@@ -4,7 +4,7 @@ PYTHON_VERSION=3.5.2
 
 echo "Installing dependencies..."
 apt-get update -y
-apt-get install -y git make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils libgconf-2-4
+apt-get install -y git make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils libgconf-2-4 p7zip
 echo "Done"
 
 echo "Installing pyenv..."
@@ -23,13 +23,6 @@ echo "Done"
 echo "Cloning OmniDB repo..."
 rm -rf ~/OmniDB
 git clone --depth 1 --branch dev https://github.com/OmniDB/OmniDB ~/OmniDB
-cd ~/OmniDB
-echo "Done"
-
-echo "Installing OmniDB dependencies..."
-pip install pip --upgrade
-pip install -r ~/OmniDB/requirements.txt
-pip install -r ~/OmniDB/OmniDB/deploy/requirements_for_deploy_server.txt
 echo "Done"
 
 echo "Building..."

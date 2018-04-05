@@ -12,16 +12,51 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 
 import os
 import sys
+import shutil
+import random
+import string
+import getpass
+from . import custom_settings
+
+# Development Mode
+DEV_MODE = custom_settings.DEV_MODE
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+TEMP_DIR = os.path.join(BASE_DIR,'OmniDB_app','static','temp')
+
+# OmniDB User Folder
+DESKTOP_MODE = custom_settings.DESKTOP_MODE
+if DEV_MODE:
+    HOME_DIR = BASE_DIR
+elif custom_settings.HOME_DIR:
+    HOME_DIR = custom_settings.HOME_DIR
+else:
+    if DESKTOP_MODE:
+        HOME_DIR = os.path.join(os.path.expanduser('~'), '.omnidb', 'omnidb-app')
+    else:
+        HOME_DIR = os.path.join(os.path.expanduser('~'), '.omnidb', 'omnidb-server')
+if not os.path.exists(HOME_DIR):
+    os.makedirs(HOME_DIR)
+CHAT_LINK = ''
+LOG_DIR = HOME_DIR
+SESSION_DATABASE = os.path.join(HOME_DIR, 'db.sqlite3')
+if not os.path.exists(SESSION_DATABASE):
+    shutil.copyfile(os.path.join(BASE_DIR, 'db.sqlite3'), SESSION_DATABASE)
+CONFFILE = os.path.join(HOME_DIR, 'omnidb.conf')
+if not DEV_MODE and not os.path.exists(CONFFILE):
+    shutil.copyfile(os.path.join(BASE_DIR, 'omnidb.conf'), CONFFILE)
+OMNIDB_DATABASE = os.path.join(HOME_DIR, 'omnidb.db')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.10/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'ijbq-+%n_(_^ct+qnqp%ir8fzu3n#q^i71j4&y#-6#qe(dx!h3'
+if DEV_MODE:
+    SECRET_KEY = 'ijbq-+%n_(_^ct+qnqp%ir8fzu3n#q^i71j4&y#-6#qe(dx!h3'
+else:
+    SECRET_KEY = ''.join(random.choice(string.ascii_lowercase + string.digits) for i in range(50))
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -77,7 +112,7 @@ WSGI_APPLICATION = 'OmniDB.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'NAME': os.path.join(HOME_DIR, 'db.sqlite3'),
         #'NAME': ':memory:',
     }
 }
@@ -106,13 +141,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/1.10/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_L10N = True
-
 USE_TZ = True
 
 
@@ -138,14 +169,14 @@ LOGGING = {
     'handlers': {
         'logfile_omnidb': {
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'log/omnidb.log'),
+            'filename': os.path.join(LOG_DIR, 'omnidb.log'),
             'maxBytes': 1024*1024*5, # 5 MB
             'backupCount': 5,
             'formatter': 'standard',
         },
         'logfile_django': {
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'log/omnidb.log'),
+            'filename': os.path.join(LOG_DIR, 'omnidb.log'),
             'maxBytes': 1024*1024*5, # 5 MB
             'backupCount': 5,
             'formatter': 'standard',
@@ -175,24 +206,21 @@ LOGGING = {
             'handlers': ['logfile_django','console_omnidb_app'],
             'level': 'INFO',
             'propagate': False
-        },
+        }
     }
 }
 
 #OMNIDB PARAMETERS
-OMNIDB_DATABASE            = os.path.join(BASE_DIR, 'omnidb.db')
-OMNIDB_VERSION             = 'OmniDB 2.3.0'
-BINDKEY_EXECUTE            = 'alt+q'
-BINDKEY_EXECUTE_MAC        = 'ctrl+q'
-BINDKEY_REPLACE            = 'ctrl+g'
-BINDKEY_REPLACE_MAC        = 'ctrl+g'
-OMNIDB_DEFAULT_SERVER_PORT = 8000
-OMNIDB_DEFAULT_APP_PORT    = 25480
-WS_QUERY_PORT              = 25482
-IS_SSL                     = False
-SSL_CERTIFICATE            = ""
-SSL_KEY                    = ""
-CH_CMDS_PER_PAGE           = 20
-PWD_TIMEOUT_TOTAL          = 1800
-PWD_TIMEOUT_REFRESH        = 300
-DESKTOP_MODE               = False
+OMNIDB_VERSION                 = custom_settings.OMNIDB_VERSION
+OMNIDB_SHORT_VERSION           = custom_settings.OMNIDB_SHORT_VERSION
+BINDKEY_AUTOCOMPLETE           = 'ctrl+space'
+BINDKEY_AUTOCOMPLETE_MAC       = 'cmd+space'
+OMNIDB_WEBSOCKET_PORT          = 25482
+OMNIDB_EXTERNAL_WEBSOCKET_PORT = 25482
+OMNIDB_ADDRESS                 = '0.0.0.0'
+IS_SSL                         = False
+SSL_CERTIFICATE                = ""
+SSL_KEY                        = ""
+CH_CMDS_PER_PAGE               = 20
+PWD_TIMEOUT_TOTAL              = 1800
+PWD_TIMEOUT_REFRESH            = 300

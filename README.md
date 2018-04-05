@@ -1,19 +1,19 @@
-# OmniDB 2.3.0
+# OmniDB 2.6.0
 
 ## Release Notes
 
-- Debugger for PL/pgSQL functions (requires a plugin, please see [installation instructions](https://github.com/OmniDB/OmniDB/blob/master/omnidb_plugin/README.md) and [how to use](https://blog.2ndquadrant.com/omnidb-debugger-for-plpgsql-functions/))
-- Automatic saving of query tabs (fixes #200)
-- Automatic closing of database connections
-- Other enhancements:
-  - Tabbed SQL History
-  - Packages for openSUSE
-- Bug fixes:
-  - #239: Unable to use some password
-  - #261: Click and drag image
-  - #278: EditData does not work when column has uppercase letters
-  - #279: Autocomplete in query and EditData does not work for columns with upper case
-  - Other minor bugs in treeview
+- New features:
+  - Psql like console tab allowing users to run commands and keep track of past executions
+  - Export query results to CSV or XLSX
+  - Interface allowing users to define shortcuts for several actions, such as run query, cancel query, explain, tab management and others
+  - Execute selected query in query tab
+- Improvements:
+  - Separation between server hosting OmniDB and websocket server (to handle query, console and debugging tabs), enhancing performance for multiple users ([deployment tutorial](https://omnidb.org/en/documentation-en/19-deploying-omnidb-server))
+  - JSON and JSONB types fetched with single-quotes, following the JSON standard
+  - Enhanced performance of database tree when rendering thousands of nodes
+  - OmniDB sets application_name for all PostgreSQL connections
+  - New login screen
+  - Welcome tab with details about current version
 
 # 1- Installation
 
@@ -44,6 +44,7 @@ echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 source ~/.bashrc
 
 pyenv install 3.5.2
+cd OMNIDB_FOLDER
 pyenv local 3.5.2
 
 pip install pip --upgrade
@@ -55,7 +56,7 @@ pip install -r requirements.txt
 Download or clone OmniDB repo and extract it somewhere. To start Django server, enter into `OmniDB/OmniDB` folder and type:
 
 ```
-python3 manage.py runserver
+python omnidb-server.py
 ```
 
 # 2- Introduction
@@ -88,8 +89,8 @@ Supported Platforms:
 Supported DBMS:
 
 - [X] PostgreSQL
+- [X] Oracle
 - [ ] MySQL
-- [ ] Oracle
 - [ ] Firebird
 - [ ] SQLite
 - [ ] Microsoft SQL Server
@@ -150,3 +151,7 @@ OmniDB is designed for easy database management. Here are some features:
   - PL/pgSQL function debugger (requires a plugin, please see [here](https://github.com/OmniDB/OmniDB/blob/master/omnidb_plugin/README.md))
 
 ![](https://omnidb.org/images/screenshots/debugger.png)
+
+  - Monitoring dashboard
+
+![](https://omnidb.org/images/screenshots/monitoring_dashboard.png)

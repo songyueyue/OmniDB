@@ -3,7 +3,7 @@
 PYTHON_VERSION=3.5.2
 
 echo "Installing dependencies..."
-yum install -y gcc gcc-c++ make git patch openssl-devel zlib-devel readline-devel sqlite-devel bzip2-devel rpm-build
+yum install -y gcc gcc-c++ make git patch openssl-devel zlib-devel readline-devel sqlite-devel bzip2-devel rpm-build wget p7zip
 yum groupinstall -y gnome
 echo "Done"
 
@@ -23,13 +23,6 @@ echo "Done"
 echo "Cloning OmniDB repo..."
 rm -rf ~/OmniDB
 git clone --depth 1 --branch dev https://github.com/OmniDB/OmniDB ~/OmniDB
-cd ~/OmniDB
-echo "Done"
-
-echo "Installing OmniDB dependencies..."
-pip install pip --upgrade
-pip install -r ~/OmniDB/requirements.txt
-pip install -r ~/OmniDB/OmniDB/deploy/requirements_for_deploy_app.txt
 echo "Done"
 
 echo "Building..."

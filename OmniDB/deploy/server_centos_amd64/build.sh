@@ -1,7 +1,13 @@
 #!/bin/sh -e
 
-VERSION=2.3.0
+VERSION=2.6.0
 ARCH=centos-amd64
+
+echo "Installing OmniDB dependencies..."
+pip install pip --upgrade
+pip install -r ~/OmniDB/requirements.txt --upgrade
+pip install -r ~/OmniDB/OmniDB/deploy/requirements_for_deploy_server.txt --upgrade
+echo "Done"
 
 cd ~/OmniDB/OmniDB
 
@@ -10,6 +16,14 @@ rm -rf build
 rm -rf dist
 rm -rf deploy/packages
 echo "Done."
+
+echo -n "Switching to Release Mode..."
+sed -i -e 's/DEV_MODE = True/DEV_MODE = False/g' OmniDB/custom_settings.py
+echo "Done."
+
+echo -n "Replacing line-end char for SQLite backward compatibility..."
+sed -i -e 's/char(10)/x\x270a\x27/g' OmniDB/migrations/*.sql
+echo "Done"
 
 echo "Generating bundles... "
 pyinstaller OmniDB-lin.spec
@@ -20,6 +34,7 @@ rm -rf build
 mkdir deploy/packages
 cp dist/omnidb-config/omnidb-config dist/omnidb-server/omnidb-config-server
 mv dist/omnidb-server deploy/packages
+chmod 777 deploy/packages/omnidb-server/OmniDB_app/static/temp/
 rm -rf dist
 echo "Done."
 
@@ -37,6 +52,10 @@ mkdir omnidb-server
 cd omnidb-server
 mkdir -p BUILD RPMS SOURCES SPECS
 cp ../omnidb-server_$VERSION-$ARCH.tar.gz SOURCES/
+cat > SOURCES/omnidb-server.sh <<EOF
+#!/bin/bash
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.:/opt/omnidb-server/ /opt/omnidb-server/omnidb-server \$@
+EOF
 
 cat > SPECS/omnidb-server.spec <<EOF
 %global _enable_debug_package 0
@@ -79,7 +98,8 @@ mkdir -p %{buildroot}/opt/%{name}
 chmod 777 %{buildroot}/opt/%{name}
 cp -r ./* %{buildroot}/opt/%{name}
 mkdir -p %{buildroot}/%{_bindir}
-ln -s /opt/%{name}/%{name} %{buildroot}/%{_bindir}/%{name}
+cp ../../SOURCES/%{name}.sh %{buildroot}/%{_bindir}/%{name}
+chmod 777 %{buildroot}/%{_bindir}/%{name}
 ln -s /opt/%{name}/%{configname} %{buildroot}/%{_bindir}/%{configname}
 
 %files
